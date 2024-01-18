@@ -41,7 +41,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         const val AppConfigFilename = "app-config.json"
         const val ModelConfigFilename = "mlc-chat-config.json"
         const val ParamsConfigFilename = "ndarray-cache.json"
-        const val ModelUrlSuffix = "resolve/main/"
+        const val ModelUrlSuffix = ""
     }
 
     init {
@@ -645,7 +645,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             executorService.submit {
                 appendMessage(MessageRole.User, prompt)
                 appendMessage(MessageRole.Bot, "")
-                if (!callBackend { backend.prefill(prompt) }) return@submit
+                if (!callBackend { backend.prefill("<用户>"+prompt+"<AI>") }) return@submit
                 while (!backend.stopped()) {
                     if (!callBackend {
                             backend.decode()

@@ -330,9 +330,10 @@ class MistralDecoderLayer(nn.Module):
         """Forward pass of a decoder layer; calculate attention, and add an residual connection."""
 
         def _apply_residual(out, residual):
+            scale_out = out * 1.4 / 40**0.5
             if self.tensor_parallel_shards > 1:
-                return op.ccl_allreduce(out + residual / self.tensor_parallel_shards, "sum")
-            return out + residual
+                return op.ccl_allreduce(scale_out + residual / self.tensor_parallel_shards, "sum")
+            return scale_out + residual
 
         out = self.self_attn(
             self.input_layernorm(hidden_states),
@@ -371,7 +372,7 @@ class MistralModel(nn.Module):
         """Forward pass of the model, passing through all decoder layers."""
         if self.tensor_parallel_shards > 1:
             inputs = op.ccl_broadcast_from_worker0(inputs)
-        hidden_states = self.embed_tokens(inputs)
+        hidden_states = self.embed_tokens(inputs) * 12.0
         for layer in self.layers:
             hidden_states = layer(
                 hidden_states, attention_mask, rolling_cache_len, kv_seq_len, cache_offset
@@ -413,7 +414,7 @@ class MistralForCasualLM(nn.Module):
             inputs, rolling_cache_len, kv_seq_len, cache_offset, attention_mask
         )
         hidden_states = op.tensor_expr_op(_index, name_hint="index", args=[hidden_states])
-        logits = self.lm_head(hidden_states)
+        logits = self.lm_head(hidden_states / 9.0)
         if logits.dtype != "float32":
             logits = logits.astype("float32")
         return logits

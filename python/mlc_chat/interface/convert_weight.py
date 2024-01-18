@@ -125,6 +125,7 @@ def _convert_args(args: ConversionArgs) -> None:  # pylint: disable=too-many-loc
         total_bytes * 8.0 / total_params,
     )
     # dump to output directory
+    # TODO custom weight here
     tvmjs.dump_ndarray_cache(
         param_dict,
         str(args.output),
