@@ -4,9 +4,9 @@
   ],
   "model_list": [
     {
-      "model_url": "https://openbmb.oss-cn-hongkong.aliyuncs.com/model_center/CPM-2B-sft-q4f16_1",
-      "local_id": "CPM-2B-sft-q4f16_1",
-      "model_lib_path": "libs/CPM-2B-sft-q4f16_1-android.tar",
+      "model_url": "https://openbmb.oss-cn-hongkong.aliyuncs.com/model_center/mobile/minicpm-embed/",
+      "local_id": "minicpm",
+      "model_lib_path": "libs/minicpm-android.tar",
       "model_lib": "mistral_q4f16_1"
     }
   ]

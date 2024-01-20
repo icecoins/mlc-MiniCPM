@@ -96,7 +96,7 @@ quantization_schemes = {
             group_size=32,
             transpose=False,
         ),
-        embedding_table="same_as_linear_weight",
+        embedding_table=NoQuantizationSpec("float16"),
         final_fc_weight="same_as_linear_weight",
     ),
     "q4f16_2": QuantizationScheme(

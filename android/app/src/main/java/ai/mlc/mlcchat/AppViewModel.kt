@@ -2,9 +2,14 @@ package ai.mlc.mlcchat
 
 import ai.mlc.mlcllm.ChatModule
 import android.app.Application
+import android.app.DownloadManager
+import android.content.BroadcastReceiver
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.net.Uri
 import android.os.Environment
 import android.widget.Toast
 import androidx.compose.runtime.mutableStateOf
@@ -16,11 +21,11 @@ import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
-import java.net.URL
 import java.nio.channels.Channels
 import java.util.UUID
 import java.util.concurrent.Executors
 import kotlin.concurrent.thread
+
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     val modelList = emptyList<ModelState>().toMutableStateList()
@@ -32,8 +37,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         emptyList(),
         emptyList<ModelRecord>().toMutableList()
     )
+    private lateinit var downloadManager: DownloadManager
+
     private val application = getApplication<Application>()
     private val appDirFile = application.getExternalFilesDir("")
+    private val appCacheFile = appDirFile // application.cacheDir
     private val gson = Gson()
     private val localIdSet = emptySet<String>().toMutableSet()
 
@@ -45,6 +53,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     init {
+        downloadManager = application.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         loadAppConfig()
     }
 
@@ -78,6 +87,25 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         issueAlert("Model: $localId has been deleted")
     }
 
+    private fun extract_from_asset(srcPath: String, dstPath: String) {
+        val assetManager = application.assets
+        File(dstPath).mkdirs()
+        val files = assetManager.list(srcPath)
+        val ts = mutableListOf<Thread>()
+        for (file in files!!) {
+            ts.add(thread(start=true){
+                //  https://stackoverflow.com/questions/43894100/best-practice-for-converting-java-code-used-for-copying-assets-files-to-cache-fo
+                val inputStream = assetManager.open(srcPath + '/' + file).use { input ->
+                    val bufferedOutputStream = File(dstPath + '/' + file).outputStream().buffered().use { output ->
+                        input.copyTo(output, 10240)
+                    }
+                }
+            })
+        }
+        for (t in ts) {
+            t.join()
+        }
+    }
 
     private fun loadAppConfig() {
         val appConfigFile = File(appDirFile, AppConfigFilename)
@@ -91,21 +119,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         localIdSet.clear()
         modelSampleList.clear()
         for (modelRecord in appConfig.modelList) {
-            val modelDirFile = File(appDirFile, modelRecord.localId)
+            extract_from_asset("minicpm", appCacheFile?.absolutePath+'/'+modelRecord.localId)
+//            download_from_web(modelRecord.modelUrl, appCacheFile?.absolutePath+'/'+modelRecord.localId)
+            val modelDirFile = File(appCacheFile, modelRecord.localId)
             val modelConfigFile = File(modelDirFile, ModelConfigFilename)
-            if (modelConfigFile.exists()) {
-                val modelConfigString = modelConfigFile.readText()
-                val modelConfig = gson.fromJson(modelConfigString, ModelConfig::class.java)
-                modelConfig.localId = modelRecord.localId
-                modelConfig.modelLib = modelRecord.modelLib
-                addModelConfig(modelConfig, modelRecord.modelUrl, true)
-            } else {
-                downloadModelConfig(
-                    if (modelRecord.modelUrl.endsWith("/")) modelRecord.modelUrl else "${modelRecord.modelUrl}/",
-                    modelRecord,
-                    true
-                )
-            }
+
+            val modelConfigString = modelConfigFile.readText()
+            val modelConfig = gson.fromJson(modelConfigString, ModelConfig::class.java)
+            modelConfig.localId = modelRecord.localId
+            modelConfig.modelLib = modelRecord.modelLib
+            addModelConfig(modelConfig, modelRecord.modelUrl, true)
         }
     }
 
@@ -123,7 +146,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             ModelState(
                 modelConfig,
                 modelUrl,
-                File(appDirFile, modelConfig.localId)
+                File(appCacheFile, modelConfig.localId)
             )
         )
         if (!isBuiltin) {
@@ -134,7 +157,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun deleteModel(localId: String) {
-        val modelDirFile = File(appDirFile, localId)
+        val modelDirFile = File(appCacheFile, localId)
         modelDirFile.deleteRecursively()
         require(!modelDirFile.exists())
         localIdSet.remove(localId)
@@ -150,60 +173,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             issueAlert("Model lib ${modelConfig.modelLib} is not supported.")
         }
         return false
-    }
-
-
-    private fun downloadModelConfig(modelUrl: String, modelRecord: ModelRecord, isBuiltin: Boolean) {
-        thread(start = true) {
-            try {
-                val url = URL("${modelUrl}${ModelUrlSuffix}${ModelConfigFilename}")
-                val tempId = UUID.randomUUID().toString()
-                val tempFile = File(
-                    application.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
-                    tempId
-                )
-                url.openStream().use {
-                    Channels.newChannel(it).use { src ->
-                        FileOutputStream(tempFile).use { fileOutputStream ->
-                            fileOutputStream.channel.transferFrom(src, 0, Long.MAX_VALUE)
-                        }
-                    }
-                }
-                require(tempFile.exists())
-                viewModelScope.launch {
-                    try {
-                        val modelConfigString = tempFile.readText()
-                        val modelConfig = gson.fromJson(modelConfigString, ModelConfig::class.java)
-                        modelConfig.localId = modelRecord.localId
-                        modelConfig.modelLib = modelRecord.modelLib
-                        if (localIdSet.contains(modelConfig.localId)) {
-                            tempFile.delete()
-                            issueAlert("${modelConfig.localId} has been used, please consider another local ID")
-                            return@launch
-                        }
-                        if (!isModelConfigAllowed(modelConfig)) {
-                            tempFile.delete()
-                            return@launch
-                        }
-                        val modelDirFile = File(appDirFile, modelConfig.localId)
-                        val modelConfigFile = File(modelDirFile, ModelConfigFilename)
-                        tempFile.copyTo(modelConfigFile, overwrite = true)
-                        tempFile.delete()
-                        require(modelConfigFile.exists())
-                        addModelConfig(modelConfig, modelUrl, isBuiltin)
-                    } catch (e: Exception) {
-                        viewModelScope.launch {
-                            issueAlert("Add model failed: ${e.localizedMessage}")
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                viewModelScope.launch {
-                    issueAlert("Download model config failed: ${e.localizedMessage}")
-                }
-            }
-
-        }
     }
 
     inner class ModelState(
@@ -228,12 +197,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         private fun switchToInitializing() {
             val paramsConfigFile = File(modelDirFile, ParamsConfigFilename)
-            if (paramsConfigFile.exists()) {
-                loadParamsConfig()
-                switchToIndexing()
-            } else {
-                downloadParamsConfig()
-            }
+
+            loadParamsConfig()
+            switchToIndexing()
         }
 
         private fun loadParamsConfig() {
@@ -241,29 +207,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             require(paramsConfigFile.exists())
             val jsonString = paramsConfigFile.readText()
             paramsConfig = gson.fromJson(jsonString, ParamsConfig::class.java)
-        }
-
-        private fun downloadParamsConfig() {
-            thread(start = true) {
-                val url = URL("${modelUrl}${ModelUrlSuffix}${ParamsConfigFilename}")
-                val tempId = UUID.randomUUID().toString()
-                val tempFile = File(modelDirFile, tempId)
-                url.openStream().use {
-                    Channels.newChannel(it).use { src ->
-                        FileOutputStream(tempFile).use { fileOutputStream ->
-                            fileOutputStream.channel.transferFrom(src, 0, Long.MAX_VALUE)
-                        }
-                    }
-                }
-                require(tempFile.exists())
-                val paramsConfigFile = File(modelDirFile, ParamsConfigFilename)
-                tempFile.renameTo(paramsConfigFile)
-                require(paramsConfigFile.exists())
-                viewModelScope.launch {
-                    loadParamsConfig()
-                    switchToIndexing()
-                }
-            }
         }
 
         fun handleStart() {
@@ -327,20 +270,21 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         private fun switchToIndexing() {
             modelInitState.value = ModelInitState.Indexing
             progress.value = 0
-            total.value = modelConfig.tokenizerFiles.size + paramsConfig.paramsRecords.size
-            for (tokenizerFilename in modelConfig.tokenizerFiles) {
-                val file = File(modelDirFile, tokenizerFilename)
-                if (file.exists()) {
-                    ++progress.value
-                } else {
-                    remainingTasks.add(
-                        DownloadTask(
-                            URL("${modelUrl}${ModelUrlSuffix}${tokenizerFilename}"),
-                            file
-                        )
-                    )
-                }
-            }
+            total.value = paramsConfig.paramsRecords.size
+//            total.value = modelConfig.tokenizerFiles.size + paramsConfig.paramsRecords.size
+//            for (tokenizerFilename in modelConfig.tokenizerFiles) {
+//                val file = File(modelDirFile, tokenizerFilename)
+//                if (file.exists()) {
+//                    ++progress.value
+//                } else {
+//                    remainingTasks.add(
+//                        DownloadTask(
+//                            URL("${modelUrl}${ModelUrlSuffix}${tokenizerFilename}"),
+//                            file
+//                        )
+//                    )
+//                }
+//            }
             for (paramsRecord in paramsConfig.paramsRecords) {
                 val file = File(modelDirFile, paramsRecord.dataPath)
                 if (file.exists()) {
@@ -348,7 +292,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     remainingTasks.add(
                         DownloadTask(
-                            URL("${modelUrl}${ModelUrlSuffix}${paramsRecord.dataPath}"),
+                            "${modelUrl}${ModelUrlSuffix}${paramsRecord.dataPath}",
                             file
                         )
                     )
@@ -361,7 +305,23 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
+
+        val task_map = mutableMapOf<Long, DownloadTask>()
+
+        inner class Reciever: BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                val task_id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
+
+                val name = task_map[task_id]!!.file.name
+                File(modelDirFile.parentFile, "Download/${name}").renameTo(File("${modelDirFile}/${name}"))
+                handleFinishDownload(task_map[task_id]!!)
+            }
+        }
+
         private fun switchToDownloading() {
+            val onDownloaded = Reciever()
+            application.registerReceiver(onDownloaded, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
+
             modelInitState.value = ModelInitState.Downloading
             for (downloadTask in remainingTasks) {
                 if (downloadingTasks.size < maxDownloadTasks) {
@@ -376,23 +336,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             require(modelInitState.value == ModelInitState.Downloading)
             require(!downloadingTasks.contains(downloadTask))
             downloadingTasks.add(downloadTask)
-            thread(start = true) {
-                val tempId = UUID.randomUUID().toString()
-                val tempFile = File(modelDirFile, tempId)
-                downloadTask.url.openStream().use {
-                    Channels.newChannel(it).use { src ->
-                        FileOutputStream(tempFile).use { fileOutputStream ->
-                            fileOutputStream.channel.transferFrom(src, 0, Long.MAX_VALUE)
-                        }
-                    }
-                }
-                require(tempFile.exists())
-                tempFile.renameTo(downloadTask.file)
-                require(downloadTask.file.exists())
-                viewModelScope.launch {
-                    handleFinishDownload(downloadTask)
-                }
-            }
+
+            val request = DownloadManager.Request(Uri.parse(downloadTask.url)).setDestinationInExternalFilesDir(application, Environment.DIRECTORY_DOWNLOADS, downloadTask.file.name)
+            val task_id = downloadManager.enqueue(request)
+            task_map[task_id] = downloadTask
         }
 
         private fun handleNextDownload() {
@@ -708,7 +655,7 @@ enum class MessageRole {
     User
 }
 
-data class DownloadTask(val url: URL, val file: File)
+data class DownloadTask(val url: String, val file: File)
 
 data class MessageData(val role: MessageRole, val text: String, val id: UUID = UUID.randomUUID())
 
