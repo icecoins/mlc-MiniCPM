@@ -163,7 +163,7 @@ fun MessageView(messageData: MessageData) {
             ) {
                 Text(
                     text = messageData.text,
-                    textAlign = TextAlign.Right,
+                    textAlign = TextAlign.Left,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier
                         .wrapContentWidth()
