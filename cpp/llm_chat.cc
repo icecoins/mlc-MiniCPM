@@ -742,7 +742,7 @@ class LLMChat {
       picojson::object generation_config = picojson::object()) {
     if (conversation_.separator_style == SeparatorStyle::kLM ||
         conversation_.separator_style == SeparatorStyle::kCodeCompletion) {
-      this->ResetChat();
+      // this->ResetChat();
     }
     if (reset_stats_per_prefill_) {
       this->ResetRuntimeStats();

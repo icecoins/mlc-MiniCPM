@@ -11,16 +11,21 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
 import android.os.Environment
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.launch
+import java.io.BufferedReader
 import java.io.File
 import java.io.FileOutputStream
+import java.io.FileReader
 import java.nio.channels.Channels
 import java.util.UUID
 import java.util.concurrent.Executors
@@ -586,17 +591,58 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
+        fun test_performance() {
+            val outFile = File("/sdcard/Android/data/ai.mlc.mlcchat/files/Test/2.txt")
+            outFile.writeText("")
+            val reader = BufferedReader(FileReader("/sdcard/Android/data/ai.mlc.mlcchat/files/Test/instance2.jsonl"))
+            var prompt: String
+            while (reader.readLine().also { prompt = it } != null) {
+                val jo = JsonParser.parseString(prompt).asJsonObject
+                prompt = jo.get("prompt_inputs").asJsonArray[0].asString
+
+                var newText = ""
+                switchToGenerating()
+
+                    appendMessage(MessageRole.User, prompt)
+                    appendMessage(MessageRole.Bot, "")
+                    callBackend { backend.prefill("<用户>" + prompt + "<AI>") }
+                    while (!backend.stopped()) {
+                        callBackend {
+                            backend.decode()
+                            newText = backend.message
+                            viewModelScope.launch { updateMessage(MessageRole.Bot, newText) }
+                        }
+                    }
+                    val runtimeStats = backend.runtimeStatsText()
+                    viewModelScope.launch {
+                        report.value = runtimeStats
+                        if (modelChatState.value == ModelChatState.Generating) switchToReady()
+                    }
+                    outFile.appendText(newText.replace("\n","\\n")+"\n")
+
+                switchToResetting()
+                callBackend { backend.resetChat() }
+                clearHistory()
+                switchToReady()
+
+            }
+        }
+
         fun requestGenerate(prompt: String) {
             require(chatable())
+//            executorService.submit {
+//                test_performance()
+//            }
+            var newText = ""
             switchToGenerating()
             executorService.submit {
                 appendMessage(MessageRole.User, prompt)
                 appendMessage(MessageRole.Bot, "")
-                if (!callBackend { backend.prefill("<用户>"+prompt+"<AI>") }) return@submit
+                if (!callBackend { backend.prefill("<用户>" + prompt + "<AI>") }) return@submit
                 while (!backend.stopped()) {
                     if (!callBackend {
                             backend.decode()
-                            val newText = backend.message
+                            newText = backend.message
                             viewModelScope.launch { updateMessage(MessageRole.Bot, newText) }
                         }) return@submit
                     if (modelChatState.value != ModelChatState.Generating) return@submit

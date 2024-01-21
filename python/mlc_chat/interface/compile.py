@@ -85,16 +85,18 @@ def _apply_preproc_to_params(
 
 def _compile(args: CompileArgs, model_config: ConfigBase):
     def _get_variable_bounds(model_config) -> Dict[str, int]:
-        variable_bounds = {"seq_len": model_config.prefill_chunk_size}
         if hasattr(model_config, "sliding_window_size"):
-            variable_bounds["rolling_cache_len"] = model_config.sliding_window_size
-            variable_bounds["kv_seq_len"] = (
-                model_config.sliding_window_size + model_config.prefill_chunk_size,
-            )
-        else:
-            variable_bounds["total_seq_len"] = model_config.context_window_size
-        variable_bounds["batch_size"] = getattr(model_config, "max_batch_size", 1)
-        return variable_bounds
+            return {
+                "rolling_cache_len": model_config.sliding_window_size,
+                "kv_seq_len": model_config.sliding_window_size + model_config.prefill_chunk_size,
+                "seq_len": model_config.prefill_chunk_size,
+                "batch_size": getattr(model_config, "max_batch_size", 1),
+            }
+        return {
+            "total_seq_len": model_config.context_window_size,
+            "seq_len": model_config.prefill_chunk_size,
+            "batch_size": getattr(model_config, "max_batch_size", 1),
+        }
 
     def _get_param_metadata(name: str, param: nn.Parameter) -> Dict[str, Any]:
         return {
@@ -135,6 +137,15 @@ def _compile(args: CompileArgs, model_config: ConfigBase):
             and model_config.tensor_parallel_shards > 1
         ):
             raise NotImplementedError
+        if (
+            hasattr(args.quantization, "linear_weight_layout")
+            and args.quantization.linear_weight_layout == "KN"
+            and hasattr(model_config, "tensor_parallel_shards")
+            and model_config.tensor_parallel_shards > 1
+        ):
+            raise NotImplementedError(
+                "KN layout (q3f16_0 and q4f16_0) is not supported for tensor parallelism"
+            )
         model, _ = args.model.quantize[args.quantization.kind](model_config, args.quantization)
         kv_cache_bytes = _find_kv_cache_bytes(model, model_config)
         # Step 2. Exporting the model to TVM Unity
@@ -164,6 +175,7 @@ def _compile(args: CompileArgs, model_config: ConfigBase):
             args,
             pipeline=relax.get_pipeline(  # type: ignore
                 "mlc_llm",
+                flashinfer=args.opt.flashinfer,
                 cublas_gemm=args.opt.cublas_gemm,
                 variable_bounds=variable_bounds,
                 additional_tirs=additional_tirs,

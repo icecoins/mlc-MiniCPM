@@ -12,6 +12,7 @@ from .gpt_bigcode import gpt_bigcode_loader, gpt_bigcode_model, gpt_bigcode_quan
 from .gpt_neox import gpt_neox_loader, gpt_neox_model, gpt_neox_quantization
 from .llama import llama_loader, llama_model, llama_quantization
 from .mistral import mistral_loader, mistral_model, mistral_quantization
+from .mixtral import mixtral_loader, mixtral_model, mixtral_quantization
 from .phi import phi_loader, phi_model, phi_quantization
 
 ModelConfig = Any
@@ -99,6 +100,19 @@ MODELS: Dict[str, Model] = {
             "group-quant": gpt2_quantization.group_quant,
         },
     ),
+    "mixtral": Model(
+        name="mixtral",
+        model=mixtral_model.MixtralForCasualLM,
+        config=mixtral_model.MixtralConfig,
+        source={
+            "huggingface-torch": mixtral_loader.huggingface,
+            "huggingface-safetensor": mixtral_loader.huggingface,
+        },
+        quantize={
+            "no-quant": mixtral_quantization.no_quant,
+            "group-quant": mixtral_quantization.group_quant,
+        },
+    ),
     "gpt_neox": Model(
         name="gpt_neox",
         model=gpt_neox_model.GPTNeoXForCausalLM,
@@ -132,6 +146,19 @@ MODELS: Dict[str, Model] = {
         source={
             "huggingface-torch": phi_loader.huggingface,
             "huggingface-safetensor": phi_loader.huggingface,
+        },
+        quantize={
+            "no-quant": phi_quantization.no_quant,
+            "group-quant": phi_quantization.group_quant,
+        },
+    ),
+    "phi": Model(
+        name="phi",
+        model=phi_model.PhiForCausalLM,
+        config=phi_model.Phi1Config,
+        source={
+            "huggingface-torch": phi_loader.phi1_huggingface,
+            "huggingface-safetensor": phi_loader.phi1_huggingface,
         },
         quantize={
             "no-quant": phi_quantization.no_quant,

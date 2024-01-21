@@ -1,15 +1,17 @@
 """The group quantization config"""
 from dataclasses import dataclass
-from typing import Any, Callable, List, Optional, Tuple
+from functools import partial
+from typing import Any, Callable, List, Literal, Optional, Tuple
 
 from tvm import DataType, DataTypeCode, IRModule
 from tvm import dlight as dl
-from tvm import relax, te, tir
+from tvm import relax, te, tir, topi
 from tvm.relax.frontend import nn
 from tvm.runtime import NDArray
 from tvm.target import Target
 
 from mlc_chat.loader import QuantizeMapping
+from mlc_chat.nn import MixtralExperts
 from mlc_chat.support import logging
 from mlc_chat.support import tensor_parallel as tp
 
@@ -25,9 +27,10 @@ class GroupQuantize:  # pylint: disable=too-many-instance-attributes
     name: str
     kind: str
     group_size: int
-    quantize_dtype: str  # "int3", "int4", "int8"
-    storage_dtype: str  # "uint32"
-    model_dtype: str  # "float16", "float32"
+    quantize_dtype: Literal["int3", "int4", "int8"]
+    storage_dtype: Literal["uint32"]
+    model_dtype: Literal["float16", "float32"]
+    linear_weight_layout: Literal["KN", "NK"]
 
     num_elem_per_storage: int = 0
     num_storage_per_group: int = 0
@@ -49,6 +52,7 @@ class GroupQuantize:  # pylint: disable=too-many-instance-attributes
             raise ValueError("Group size should be divisible by numbers of elements per storage")
         self.num_storage_per_group = self.group_size // self.num_elem_per_storage
         self.max_int_value = (2 ** (quantize_dtype.bits - 1)) - 1
+        self.linear_quant_axis = 0 if self.linear_weight_layout == "KN" else 1 # TODO
         self._quantize_func_cache = {}
 
     def quantize_model(
@@ -100,16 +104,24 @@ class GroupQuantize:  # pylint: disable=too-many-instance-attributes
                 ret_node: Any
                     The new node to replace current node.
                 """
-                if isinstance(node, nn.Linear):
+                if isinstance(node, nn.Linear) and name != "lm_head":
                     weight_name = f"{name}.weight"
                     self.quant_map.param_map[weight_name] = [f"{name}.q_weight", f"{name}.q_scale", f"{name}.q_zero"]
-                    self.quant_map.map_func[weight_name] = self.config.quantize_weight
+                    self.quant_map.map_func[weight_name] = partial(
+                        self.config.quantize_weight,
+                        output_transpose=self.config.linear_weight_layout == "KN",
+                    )
                     return GroupQuantizeLinear.from_linear(node, self.config)
-                if isinstance(node, nn.Embedding):
+                # if isinstance(node, nn.Embedding):
+                #     weight_name = f"{name}.weight"
+                #     self.quant_map.param_map[weight_name] = [f"{name}.q_weight", f"{name}.q_scale", f"{name}.q_zero"]
+                #     self.quant_map.map_func[weight_name] = self.config.quantize_weight
+                #     return GroupQuantizeEmbedding.from_embedding(node, self.config)
+                if isinstance(node, MixtralExperts):
                     weight_name = f"{name}.weight"
                     self.quant_map.param_map[weight_name] = [f"{name}.q_weight", f"{name}.q_scale", f"{name}.q_zero"]
                     self.quant_map.map_func[weight_name] = self.config.quantize_weight
-                    return GroupQuantizeEmbedding.from_embedding(node, self.config)
+                    return GroupQuantizeMixtralExperts.from_mixtral_experts(node, self.config)
                 return self.visit(name, node)
 
         model.to(dtype=self.model_dtype)
@@ -122,6 +134,7 @@ class GroupQuantize:  # pylint: disable=too-many-instance-attributes
         weight: te.Tensor,
         scale: te.Tensor,
         zero: te.Tensor,
+        axis: int,
         out_shape: Optional[List[tir.PrimExpr]] = None,
     ):
         tir_max_int = tir.const(self.max_int_value, self.model_dtype)
@@ -131,26 +144,29 @@ class GroupQuantize:  # pylint: disable=too-many-instance-attributes
             self.num_elem_per_storage,
             self.storage_dtype,
             self.model_dtype,
-            out_shape,
+            axis=axis,
+            out_shape=out_shape,
         )
+        if out_shape is None:
+            out_shape = weight.shape
+            out_shape[axis] *= self.num_elem_per_storage
+        axis = axis if axis >= 0 else len(out_shape) + axis
         return te.compute(
-            shape=[*weight.shape[:-1], weight.shape[-1] * self.num_elem_per_storage]
-            if out_shape is None
-            else out_shape,
-            fcompute=lambda *idx: tir.add(
-                tir.multiply(
-                    tir.subtract(
-                        float_weight[idx[:-1] + (idx[-1],)],
-                        tir_max_int,
-                    ),
-                    scale[idx[:-1] + (idx[-1] // self.group_size,)],
+            shape=out_shape,
+            fcompute=lambda *idx: tir.multiply(
+                tir.subtract(
+                    float_weight(*idx),
+                    # tir_max_int,
+                    zero(*idx[:axis], idx[axis] // self.group_size, *idx[axis + 1 :]),
                 ),
-                zero[idx[:-1] + (idx[-1] // self.group_size,)],
+                scale(*idx[:axis], idx[axis] // self.group_size, *idx[axis + 1 :]),
             ),
             name="dequantize",
         )
 
-    def quantize_weight(self, weight: NDArray) -> List[NDArray]:
+    def quantize_weight(
+        self, weight: NDArray, axis: int = -1, output_transpose: bool = False
+    ) -> List[NDArray]:
         """
         Quantize weight with group quantization
 
@@ -159,6 +175,12 @@ class GroupQuantize:  # pylint: disable=too-many-instance-attributes
         weight : NDArray
             The original weight.
 
+        axis : int
+            The group axis.
+
+        output_transpose : bool
+            Whether to transpose the output quantized weight. Only 2D weight is supported.
+
         Returns
         ------
         ret: List[NDArray]
@@ -166,13 +188,14 @@ class GroupQuantize:  # pylint: disable=too-many-instance-attributes
         """
         device = weight.device
         device_type = device.MASK2STR[device.device_type]
+        axis = self.linear_quant_axis # axis if axis >= 0 else len(weight.shape) + axis
 
         def _create_quantize_func() -> IRModule:
             bb = relax.BlockBuilder()  # pylint: disable=invalid-name
             weight_var = relax.Var("weight", relax.TensorStructInfo(weight.shape, weight.dtype))
             with bb.function(name="main", params=[weight_var]):
                 with bb.dataflow():
-                    lv = bb.emit_te(self._quantize, weight_var)  # pylint: disable=invalid-name
+                    lv = bb.emit_te(self._quantize, weight_var, axis, output_transpose)
                     gv = bb.emit_output(lv)  # pylint: disable=invalid-name
                 bb.emit_func_output(gv)
             return bb.finalize()
@@ -197,13 +220,9 @@ class GroupQuantize:  # pylint: disable=too-many-instance-attributes
             vm = relax.VirtualMachine(ex, device)  # pylint: disable=invalid-name
             return vm["main"]
 
-        key = str(
-            (
-                *(int(weight.shape[i]) for i in range(len(weight.shape) - 1)),
-                int(weight.shape[-1]),
-                weight.dtype,
-                device_type,
-            )
+        key = (
+            f"({weight.shape}, {weight.dtype}, {device_type}, "
+            f"axis={axis}, output_transpose={output_transpose})"
         )
         quantize_func = self._quantize_func_cache.get(key, None)
         if quantize_func is None:
@@ -215,36 +234,51 @@ class GroupQuantize:  # pylint: disable=too-many-instance-attributes
     def _quantize(  # pylint: disable=too-many-locals
         self,
         weight: te.Tensor,
+        axis: int = -1,
+        output_transpose: bool = False,
     ) -> Tuple[te.Tensor, te.Tensor, te.Tensor]:
         """Group quantization for weight tensor, defined in tensor expression."""
         max_int = tir.const(self.max_int_value, self.model_dtype)
         shape = weight.shape  # pylint: disable=invalid-name
-        k = shape[-1]
+        axis = axis if axis >= 0 else len(shape) + axis
+        k = shape[axis]
         quantize_dtype = DataType(self.quantize_dtype)
         # compute scale per group
         r = te.reduce_axis((0, self.group_size), name="r")  # pylint: disable=invalid-name
         num_group = tir.ceildiv(k, self.group_size)
-        scale_shape = (*shape[:-1], num_group)
-        max_abs = te.compute(
+        scale_shape = (*shape[:axis], num_group, *shape[axis + 1 :])
+        max_value = te.compute(
             shape=scale_shape,
             fcompute=lambda *idx: te.max(
                 tir.if_then_else(
-                    idx[-1] * self.group_size + r < k,
-                    te.abs(weight[idx[:-1] + (idx[-1] * self.group_size + r,)]),
+                    idx[axis] * self.group_size + r < k,
+                    weight(*idx[:axis], idx[axis] * self.group_size + r, *idx[axis + 1 :]),
                     te.min_value(self.model_dtype),
                 ),
                 axis=r,
             ),
-            name="max_abs_value",
+            name="max_value",
+        )
+        min_value = te.compute(
+            shape=scale_shape,
+            fcompute=lambda *idx: te.min(
+                tir.if_then_else(
+                    idx[axis] * self.group_size + r < k,
+                    weight(*idx[:axis], idx[axis] * self.group_size + r, *idx[axis + 1 :]),
+                    te.max_value(self.model_dtype),
+                ),
+                axis=r,
+            ),
+            name="min_value",
         )
         scale = te.compute(
             scale_shape,
-            lambda *idx: max_abs[idx[:-1] + (idx[-1],)].astype(self.model_dtype) / max_int,
+            lambda *idx: (max_value(*idx)-min_value(*idx)).astype(self.model_dtype) / (max_int * 2),
             name="scale",
         )
         zero = te.compute(
             scale_shape,
-            lambda *idx: max_abs[idx[:-1] + (idx[-1],)].astype(self.model_dtype) * 0,
+            lambda *idx: -min_value(*idx).astype(self.model_dtype) / scale(*idx),
             name="zero",
         )
         # compute scaled weight
@@ -253,9 +287,9 @@ class GroupQuantize:  # pylint: disable=too-many-instance-attributes
             fcompute=lambda *idx: tir.min(
                 tir.max(
                     tir.round(
-                        weight[idx[:-1] + (idx[-1],)]
-                        / scale[idx[:-1] + (idx[-1] // self.group_size,)]
-                        + max_int
+                        weight(*idx)
+                        / scale(*idx[:axis], idx[axis] // self.group_size, *idx[axis + 1 :])
+                        + zero(*idx[:axis], idx[axis] // self.group_size, *idx[axis + 1 :])
                     ),
                     tir.const(0, self.model_dtype),
                 ),
@@ -265,13 +299,15 @@ class GroupQuantize:  # pylint: disable=too-many-instance-attributes
         # compute quantized weight per storage
         r = te.reduce_axis((0, self.num_elem_per_storage), name="r")  # pylint: disable=invalid-name
         num_storage = self.num_storage_per_group * num_group
-        quantized_weight_shape = (*shape[:-1], num_storage)
+        quantized_weight_shape = (*shape[:axis], num_storage, *shape[axis + 1 :])
         quantized_weight = te.compute(
             shape=quantized_weight_shape,
             fcompute=lambda *idx: tir.sum(
                 tir.if_then_else(
-                    idx[-1] * self.num_elem_per_storage + r < k,
-                    scaled_weight[idx[:-1] + (idx[-1] * self.num_elem_per_storage + r,)]
+                    idx[axis] * self.num_elem_per_storage + r < k,
+                    scaled_weight(
+                        *idx[:axis], idx[axis] * self.num_elem_per_storage + r, *idx[axis + 1 :]
+                    )
                     << (r * quantize_dtype.bits),
                     0,
                 ),
@@ -279,7 +315,95 @@ class GroupQuantize:  # pylint: disable=too-many-instance-attributes
             ),
             name="weight",
         )
+        if output_transpose:
+            if len(quantized_weight.shape) != 2 or len(scale.shape) != 2:
+                raise ValueError(
+                    "Does not support transpose output quantized weight with ndim != 2"
+                )
+            quantized_weight = topi.transpose(quantized_weight)
+            scale = topi.transpose(scale)
         return quantized_weight, scale, zero
+
+    # def _quantize(  # pylint: disable=too-many-locals
+    #     self,
+    #     weight: te.Tensor,
+    #     axis: int = -1,
+    #     output_transpose: bool = False,
+    # ) -> Tuple[te.Tensor, te.Tensor, te.Tensor]:
+    #     """Group quantization for weight tensor, defined in tensor expression."""
+    #     max_int = tir.const(self.max_int_value, self.model_dtype)
+    #     shape = weight.shape  # pylint: disable=invalid-name
+    #     axis = axis if axis >= 0 else len(shape) + axis
+    #     k = shape[axis]
+    #     quantize_dtype = DataType(self.quantize_dtype)
+    #     # compute scale per group
+    #     r = te.reduce_axis((0, self.group_size), name="r")  # pylint: disable=invalid-name
+    #     num_group = tir.ceildiv(k, self.group_size)
+    #     scale_shape = (*shape[:axis], num_group, *shape[axis + 1 :])
+    #     max_abs = te.compute(
+    #         shape=scale_shape,
+    #         fcompute=lambda *idx: te.max(
+    #             tir.if_then_else(
+    #                 idx[axis] * self.group_size + r < k,
+    #                 te.abs(weight(*idx[:axis], idx[axis] * self.group_size + r, *idx[axis + 1 :])),
+    #                 te.min_value(self.model_dtype),
+    #             ),
+    #             axis=r,
+    #         ),
+    #         name="max_abs_value",
+    #     )
+    #     scale = te.compute(
+    #         scale_shape,
+    #         lambda *idx: max_abs(*idx).astype(self.model_dtype) / max_int,
+    #         name="scale",
+    #     )
+    #     zero = te.compute(
+    #         scale_shape,
+    #         lambda *idx: max_abs[idx[:-1] + (idx[-1],)].astype(self.model_dtype) * 0,
+    #         name="zero",
+    #     )
+    #     # compute scaled weight
+    #     scaled_weight = te.compute(
+    #         shape=weight.shape,
+    #         fcompute=lambda *idx: tir.min(
+    #             tir.max(
+    #                 tir.round(
+    #                     weight(*idx)
+    #                     / scale(*idx[:axis], idx[axis] // self.group_size, *idx[axis + 1 :])
+    #                     + max_int
+    #                 ),
+    #                 tir.const(0, self.model_dtype),
+    #             ),
+    #             max_int * 2,
+    #         ).astype(self.storage_dtype),
+    #     )
+    #     # compute quantized weight per storage
+    #     r = te.reduce_axis((0, self.num_elem_per_storage), name="r")  # pylint: disable=invalid-name
+    #     num_storage = self.num_storage_per_group * num_group
+    #     quantized_weight_shape = (*shape[:axis], num_storage, *shape[axis + 1 :])
+    #     quantized_weight = te.compute(
+    #         shape=quantized_weight_shape,
+    #         fcompute=lambda *idx: tir.sum(
+    #             tir.if_then_else(
+    #                 idx[axis] * self.num_elem_per_storage + r < k,
+    #                 scaled_weight(
+    #                     *idx[:axis], idx[axis] * self.num_elem_per_storage + r, *idx[axis + 1 :]
+    #                 )
+    #                 << (r * quantize_dtype.bits),
+    #                 0,
+    #             ),
+    #             axis=r,
+    #         ),
+    #         name="weight",
+    #     )
+    #     if output_transpose:
+    #         if len(quantized_weight.shape) != 2 or len(scale.shape) != 2:
+    #             raise ValueError(
+    #                 "Does not support transpose output quantized weight with ndim != 2"
+    #             )
+    #         quantized_weight = topi.transpose(quantized_weight)
+    #         scale = topi.transpose(scale)
+    #     return quantized_weight, scale, zero
 
 
 class GroupQuantizeLinear(nn.Module):  # pylint: disable=too-many-instance-attributes
@@ -298,12 +422,29 @@ class GroupQuantizeLinear(nn.Module):  # pylint: disable=too-many-instance-attri
         self.out_features = out_features
         self.out_dtype = out_dtype
         self.config = config
-        num_group = tir.ceildiv(in_features, config.group_size)
-        self.q_weight = nn.Parameter(
-            (out_features, config.num_storage_per_group * num_group), config.storage_dtype
-        )
-        self.q_scale = nn.Parameter((out_features, num_group), config.model_dtype)
-        self.q_zero = nn.Parameter((out_features, num_group), config.model_dtype)
+        if self.config.linear_quant_axis == 0:
+            num_group = tir.ceildiv(out_features, config.group_size)
+        else:
+            num_group = tir.ceildiv(in_features, config.group_size)
+        if config.linear_weight_layout == "KN":
+            self.q_weight = nn.Parameter(
+                (config.num_storage_per_group * num_group, out_features), config.storage_dtype
+            )
+            self.q_scale = nn.Parameter((num_group, out_features), config.model_dtype)
+            self.q_zero = nn.Parameter((num_group, out_features), config.model_dtype)
+        else:
+            if self.config.linear_quant_axis == 0:
+                self.q_weight = nn.Parameter(
+                    (config.num_storage_per_group * num_group, in_features), config.storage_dtype
+                )
+                self.q_scale = nn.Parameter((num_group, in_features), config.model_dtype)
+                self.q_zero = nn.Parameter((num_group, in_features), config.model_dtype)
+            else:
+                self.q_weight = nn.Parameter(
+                    (out_features, config.num_storage_per_group * num_group), config.storage_dtype
+                )
+                self.q_scale = nn.Parameter((out_features, num_group), config.model_dtype)
+                self.q_zero = nn.Parameter((out_features, num_group), config.model_dtype)
         if bias:
             self.bias = nn.Parameter(
                 (out_features,), config.model_dtype if out_dtype is None else out_dtype
@@ -359,17 +500,24 @@ class GroupQuantizeLinear(nn.Module):  # pylint: disable=too-many-instance-attri
         ret : nn.Tensor
             The output tensor for the group quantized linear layer.
         """
+        out_shape = (
+            [tir.IntImm("int64", self.out_features), tir.IntImm("int64", self.in_features)]
+            if self.config.linear_weight_layout == "NK"
+            else [tir.IntImm("int64", self.in_features), tir.IntImm("int64", self.out_features)]
+        )
         w = nn.op.tensor_expr_op(  # pylint: disable=invalid-name
             lambda weight, scale, zero: self.config._dequantize(  # pylint: disable=protected-access
                 weight,
                 scale,
                 zero,
-                [tir.IntImm("int64", self.out_features), tir.IntImm("int64", self.in_features)],
+                axis=self.config.linear_quant_axis,
+                out_shape=out_shape,
             ),
             name_hint="dequantize",
             args=[self.q_weight, self.q_scale, self.q_zero],
         )
-        w = nn.op.permute_dims(w)  # pylint: disable=invalid-name
+        if self.config.linear_weight_layout == "NK":
+            w = nn.op.permute_dims(w)  # pylint: disable=invalid-name
         x = nn.op.matmul(x, w, out_dtype=self.out_dtype)
         if self.bias is not None:
             x = x + self.bias
@@ -443,7 +591,8 @@ class GroupQuantizeEmbedding(nn.Module):
                 weight,
                 scale,
                 zero,
-                [tir.IntImm("int64", self.num), tir.IntImm("int64", self.dim)],
+                axis=-1,
+                out_shape=[tir.IntImm("int64", self.num), tir.IntImm("int64", self.dim)],
             ),
             name_hint="dequantize",
             args=[self.q_weight, self.q_scale, self.q_zero],
@@ -453,6 +602,109 @@ class GroupQuantizeEmbedding(nn.Module):
         return nn.op.reshape(
             nn.op.take(w, nn.op.reshape(x, shape=[-1]), axis=0),
             shape=[*x.shape, self.dim],
+        )
+
+
+class GroupQuantizeMixtralExperts(nn.Module):  # pylint: disable=too-many-instance-attributes
+    """An MixtralExperts module with group quantization"""
+
+    def __init__(
+        self,
+        num_local_experts,
+        in_features,
+        out_features,
+        config: GroupQuantize,
+    ):  # pylint: disable=too-many-arguments
+        self.num_local_experts = num_local_experts
+        self.in_features = in_features
+        self.out_features = out_features
+        self.config = config
+        num_group = tir.ceildiv(in_features, config.group_size)
+        self.q_weight = nn.Parameter(
+            (num_local_experts, out_features, config.num_storage_per_group * num_group),
+            config.storage_dtype,
+        )
+        self.q_scale = nn.Parameter(
+            (num_local_experts, out_features, num_group), config.model_dtype
+        )
+        self.quantize_dtype = config.quantize_dtype
+        self.group_size = config.group_size
+        self.dtype = config.model_dtype
+        if config.linear_weight_layout == "NK":
+            raise NotImplementedError("GroupQuantizeMixtralExperts does not support NK layout now.")
+
+    @staticmethod
+    def from_mixtral_experts(
+        src: "MixtralExperts", config: GroupQuantize
+    ) -> "GroupQuantizeMixtralExperts":
+        """
+        Converts a non-quantized MixtralExperts to a group quantized GroupQuantizeMixtralExperts
+
+        Parameters
+        ----------
+        src : MixtralExperts
+            The non-quantized MixtralExperts
+
+        config : GroupQuantize
+            The group quantization config.
+
+        Returns
+        -------
+        ret : GroupQuantizeMixtralExperts
+            The group quantized GroupQuantizeMixtralExperts layer.
+        """
+        quantized_mistral_experts = GroupQuantizeMixtralExperts(
+            num_local_experts=src.num_local_experts,
+            in_features=src.in_features,
+            out_features=src.out_features,
+            config=config,
+        )
+        if "shard_strategy" in src.weight.attrs:
+            shard = src.weight.attrs["shard_strategy"]
+            _apply_sharding(shard, f"{shard.name}_q_weight", quantized_mistral_experts.q_weight)
+            _apply_sharding(shard, f"{shard.name}_q_scale", quantized_mistral_experts.q_scale)
+        return quantized_mistral_experts
+
+    def forward(self, x: nn.Tensor, indptr: nn.Tensor) -> nn.Tensor:  # pylint: disable=invalid-name
+        """Forward method for group quantized mistral experts.
+
+        Parameters
+        ----------
+        x : nn.Tensor
+            The input tensor.
+
+        indptr: nn.Tensor
+            The indptr tensor
+
+        single_batch_decode: bool
+            Whether to use single-batch decode
+
+        Returns
+        -------
+        ret : nn.Tensor
+            The output tensor for the group quantized mistral experts layer.
+        """
+        from mlc_chat.op import moe_matmul  # pylint: disable=import-outside-toplevel
+
+        assert x.ndim == 2
+        if indptr.ndim == 2:  # single-batch
+            assert indptr.shape[0] == 1
+            return moe_matmul.dequantize_gemv(
+                x,
+                self.q_weight,
+                self.q_scale,
+                indptr,
+                quantize_dtype=self.quantize_dtype,
+                group_size=self.group_size,
+            )
+        assert indptr.ndim == 1
+        return moe_matmul.dequantize_group_gemm(
+            x,
+            self.q_weight,
+            self.q_scale,
+            indptr,
+            quantize_dtype=self.quantize_dtype,
+            group_size=self.group_size,
         )
 
 
