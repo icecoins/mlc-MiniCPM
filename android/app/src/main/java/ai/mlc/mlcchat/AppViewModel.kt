@@ -323,7 +323,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             application.registerReceiver(onDownloaded, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
 
             modelInitState.value = ModelInitState.Downloading
-            for (downloadTask in remainingTasks) {
+            for (downloadTask in remainingTasks.reversed()) {
                 if (downloadingTasks.size < maxDownloadTasks) {
                     handleNewDownload(downloadTask)
                 } else {
@@ -344,7 +344,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         private fun handleNextDownload() {
             require(modelInitState.value == ModelInitState.Downloading)
-            for (downloadTask in remainingTasks) {
+            for (downloadTask in remainingTasks.reversed()) {
                 if (!downloadingTasks.contains(downloadTask)) {
                     handleNewDownload(downloadTask)
                     break
