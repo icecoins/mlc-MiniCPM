@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 def check_parameter_usage(param_map: "ExternMapping", extern_weights: Set[str]):
     """Check that all external parameters have been used and are stored in the weights file."""
-    used_extern_names = set(sum(param_map.param_map.values(), []))
+    used_extern_names = set(sum(param_map.param_map.values(), [])) - set("lm_head.weight")
     # Check 1. All extern parameters in the weight files are used unless explicitly specified
     unused_extern_names = extern_weights - used_extern_names - param_map.unused_params
     if unused_extern_names:

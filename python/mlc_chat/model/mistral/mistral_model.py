@@ -386,7 +386,7 @@ class MistralForCasualLM(nn.Module):
 
     def __init__(self, config: MistralConfig):
         self.model = MistralModel(config)
-        self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+        # self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
         self.vocab_size = config.vocab_size
         self.sliding_window_size = config.sliding_window_size
         self.dtype = "float32"
@@ -414,7 +414,9 @@ class MistralForCasualLM(nn.Module):
             inputs, rolling_cache_len, kv_seq_len, cache_offset, attention_mask
         )
         hidden_states = op.tensor_expr_op(_index, name_hint="index", args=[hidden_states])
-        logits = self.lm_head(hidden_states / 9.0)
+        w = op.permute_dims(self.model.embed_tokens.weight)
+        logits = op.matmul(hidden_states / 9.0, w)
+        # logits = self.lm_head(hidden_states / 9.0)
         if logits.dtype != "float32":
             logits = logits.astype("float32")
         return logits

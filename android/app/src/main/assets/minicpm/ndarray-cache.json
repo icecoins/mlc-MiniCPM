@@ -1,8 +1,8 @@
 {
     "metadata": {
-        "ParamSize": 563,
-        "ParamBytes": 2657834496.0,
-        "BitsPerParam": 7.069404876718499
+        "ParamSize": 562,
+        "ParamBytes": 2092188672.0,
+        "BitsPerParam": 6.142473750162766
     },
     "records": [
         {
@@ -26,25 +26,6 @@
         },
         {
             "dataPath": "params_shard_1.bin",
-            "format": "raw-shard",
-            "nbytes": 565645824,
-            "records": [
-                {
-                    "name": "lm_head.weight",
-                    "shape": [
-                        122753,
-                        2304
-                    ],
-                    "dtype": "float16",
-                    "format": "f32-to-bf16",
-                    "nbytes": 565645824,
-                    "byteOffset": 0
-                }
-            ],
-            "md5sum": "0038340fb0727b9a51c772104c2b3804"
-        },
-        {
-            "dataPath": "params_shard_2.bin",
             "format": "raw-shard",
             "nbytes": 29873664,
             "records": [
@@ -181,7 +162,7 @@
             "md5sum": "315c93e4cada44ddba8a7c61279f4a4a"
         },
         {
-            "dataPath": "params_shard_3.bin",
+            "dataPath": "params_shard_2.bin",
             "format": "raw-shard",
             "nbytes": 21574656,
             "records": [
@@ -308,7 +289,7 @@
             "md5sum": "587d01c9ed108a752d27c7c1de008c54"
         },
         {
-            "dataPath": "params_shard_4.bin",
+            "dataPath": "params_shard_3.bin",
             "format": "raw-shard",
             "nbytes": 32850432,
             "records": [
@@ -403,7 +384,7 @@
             "md5sum": "46677308c05256f5f2ddc0cda632643e"
         },
         {
-            "dataPath": "params_shard_5.bin",
+            "dataPath": "params_shard_4.bin",
             "format": "raw-shard",
             "nbytes": 30200832,
             "records": [
@@ -552,7 +533,7 @@
             "md5sum": "fdb73da288773b8a61b82c211b8f994e"
         },
         {
-            "dataPath": "params_shard_6.bin",
+            "dataPath": "params_shard_5.bin",
             "format": "raw-shard",
             "nbytes": 29864448,
             "records": [
@@ -669,7 +650,7 @@
             "md5sum": "9a85fb9f76d36014b417372604d44db5"
         },
         {
-            "dataPath": "params_shard_7.bin",
+            "dataPath": "params_shard_6.bin",
             "format": "raw-shard",
             "nbytes": 21574656,
             "records": [
@@ -796,7 +777,7 @@
             "md5sum": "753c6f50c61f06974d8798c4bb9551e4"
         },
         {
-            "dataPath": "params_shard_8.bin",
+            "dataPath": "params_shard_7.bin",
             "format": "raw-shard",
             "nbytes": 32850432,
             "records": [
@@ -891,7 +872,7 @@
             "md5sum": "e9ce66e4a30b14c90495be312a850593"
         },
         {
-            "dataPath": "params_shard_9.bin",
+            "dataPath": "params_shard_8.bin",
             "format": "raw-shard",
             "nbytes": 30200832,
             "records": [
@@ -1040,7 +1021,7 @@
             "md5sum": "2e65a25bf432ffc6a83d44c216424674"
         },
         {
-            "dataPath": "params_shard_10.bin",
+            "dataPath": "params_shard_9.bin",
             "format": "raw-shard",
             "nbytes": 29864448,
             "records": [
@@ -1157,7 +1138,7 @@
             "md5sum": "f54fb6c8d40d00e1043c5d26778088cd"
         },
         {
-            "dataPath": "params_shard_11.bin",
+            "dataPath": "params_shard_10.bin",
             "format": "raw-shard",
             "nbytes": 21574656,
             "records": [
@@ -1284,7 +1265,7 @@
             "md5sum": "470004d040f157a1b7e43d63dab32760"
         },
         {
-            "dataPath": "params_shard_12.bin",
+            "dataPath": "params_shard_11.bin",
             "format": "raw-shard",
             "nbytes": 32850432,
             "records": [
@@ -1379,7 +1360,7 @@
             "md5sum": "081c1e19e3491ccba1e4d32d87c665ef"
         },
         {
-            "dataPath": "params_shard_13.bin",
+            "dataPath": "params_shard_12.bin",
             "format": "raw-shard",
             "nbytes": 30200832,
             "records": [
@@ -1528,7 +1509,7 @@
             "md5sum": "02308e0d6a4a497d52d5615f094bedb5"
         },
         {
-            "dataPath": "params_shard_14.bin",
+            "dataPath": "params_shard_13.bin",
             "format": "raw-shard",
             "nbytes": 29864448,
             "records": [
@@ -1645,7 +1626,7 @@
             "md5sum": "deb9ef802b01939d7955ca438bc87b75"
         },
         {
-            "dataPath": "params_shard_15.bin",
+            "dataPath": "params_shard_14.bin",
             "format": "raw-shard",
             "nbytes": 21574656,
             "records": [
@@ -1772,7 +1753,7 @@
             "md5sum": "2d22c77934929423526a9733695b329e"
         },
         {
-            "dataPath": "params_shard_16.bin",
+            "dataPath": "params_shard_15.bin",
             "format": "raw-shard",
             "nbytes": 32850432,
             "records": [
@@ -1867,7 +1848,7 @@
             "md5sum": "39791db2c319f25991811c3961542d57"
         },
         {
-            "dataPath": "params_shard_17.bin",
+            "dataPath": "params_shard_16.bin",
             "format": "raw-shard",
             "nbytes": 30200832,
             "records": [
@@ -2016,7 +1997,7 @@
             "md5sum": "1c0611e929d244beabd92e9c1b2c4e2f"
         },
         {
-            "dataPath": "params_shard_18.bin",
+            "dataPath": "params_shard_17.bin",
             "format": "raw-shard",
             "nbytes": 29864448,
             "records": [
@@ -2133,7 +2114,7 @@
             "md5sum": "e959dd8f9f1a40dbbf9252e7a0ce3c0d"
         },
         {
-            "dataPath": "params_shard_19.bin",
+            "dataPath": "params_shard_18.bin",
             "format": "raw-shard",
             "nbytes": 21574656,
             "records": [
@@ -2260,7 +2241,7 @@
             "md5sum": "33a05c0ddf04b97ca28b5c8bebc7a358"
         },
         {
-            "dataPath": "params_shard_20.bin",
+            "dataPath": "params_shard_19.bin",
             "format": "raw-shard",
             "nbytes": 32850432,
             "records": [
@@ -2355,7 +2336,7 @@
             "md5sum": "633259f2d236c3144ec3e8f7f0730f5a"
         },
         {
-            "dataPath": "params_shard_21.bin",
+            "dataPath": "params_shard_20.bin",
             "format": "raw-shard",
             "nbytes": 30200832,
             "records": [
@@ -2504,7 +2485,7 @@
             "md5sum": "2e384e0c1f3904e366e32c38cbe461cf"
         },
         {
-            "dataPath": "params_shard_22.bin",
+            "dataPath": "params_shard_21.bin",
             "format": "raw-shard",
             "nbytes": 29864448,
             "records": [
@@ -2621,7 +2602,7 @@
             "md5sum": "4ae19b03325efd28cd97103db8869813"
         },
         {
-            "dataPath": "params_shard_23.bin",
+            "dataPath": "params_shard_22.bin",
             "format": "raw-shard",
             "nbytes": 21574656,
             "records": [
@@ -2748,7 +2729,7 @@
             "md5sum": "15d9b0521f691f7b7ea08e916c074698"
         },
         {
-            "dataPath": "params_shard_24.bin",
+            "dataPath": "params_shard_23.bin",
             "format": "raw-shard",
             "nbytes": 32850432,
             "records": [
@@ -2843,7 +2824,7 @@
             "md5sum": "f8528d3a37474cfa768721c970e72d15"
         },
         {
-            "dataPath": "params_shard_25.bin",
+            "dataPath": "params_shard_24.bin",
             "format": "raw-shard",
             "nbytes": 30200832,
             "records": [
@@ -2992,7 +2973,7 @@
             "md5sum": "a4db461bea8f58d4eeafc3fd9df36087"
         },
         {
-            "dataPath": "params_shard_26.bin",
+            "dataPath": "params_shard_25.bin",
             "format": "raw-shard",
             "nbytes": 29864448,
             "records": [
@@ -3109,7 +3090,7 @@
             "md5sum": "cedd286d01817eb1eab2d082b05f12b3"
         },
         {
-            "dataPath": "params_shard_27.bin",
+            "dataPath": "params_shard_26.bin",
             "format": "raw-shard",
             "nbytes": 21574656,
             "records": [
@@ -3236,7 +3217,7 @@
             "md5sum": "92f1e679c9596635b8b203c3c0c7a01e"
         },
         {
-            "dataPath": "params_shard_28.bin",
+            "dataPath": "params_shard_27.bin",
             "format": "raw-shard",
             "nbytes": 32850432,
             "records": [
@@ -3331,7 +3312,7 @@
             "md5sum": "447093c968a8c9c7bfeb9b52f1038316"
         },
         {
-            "dataPath": "params_shard_29.bin",
+            "dataPath": "params_shard_28.bin",
             "format": "raw-shard",
             "nbytes": 30200832,
             "records": [
@@ -3480,7 +3461,7 @@
             "md5sum": "422e797a56d4c08840a19304706e2f41"
         },
         {
-            "dataPath": "params_shard_30.bin",
+            "dataPath": "params_shard_29.bin",
             "format": "raw-shard",
             "nbytes": 29864448,
             "records": [
@@ -3597,7 +3578,7 @@
             "md5sum": "34c2b3e5489423ecca6167e0f73ddbb9"
         },
         {
-            "dataPath": "params_shard_31.bin",
+            "dataPath": "params_shard_30.bin",
             "format": "raw-shard",
             "nbytes": 21574656,
             "records": [
@@ -3724,7 +3705,7 @@
             "md5sum": "1cd6bdce045bf058adb7358ac0462253"
         },
         {
-            "dataPath": "params_shard_32.bin",
+            "dataPath": "params_shard_31.bin",
             "format": "raw-shard",
             "nbytes": 32850432,
             "records": [
@@ -3819,7 +3800,7 @@
             "md5sum": "5fa3883d325582528084d004c27444ce"
         },
         {
-            "dataPath": "params_shard_33.bin",
+            "dataPath": "params_shard_32.bin",
             "format": "raw-shard",
             "nbytes": 30200832,
             "records": [
@@ -3968,7 +3949,7 @@
             "md5sum": "7f5674998fd4a7f265e021f720969373"
         },
         {
-            "dataPath": "params_shard_34.bin",
+            "dataPath": "params_shard_33.bin",
             "format": "raw-shard",
             "nbytes": 29864448,
             "records": [
@@ -4085,7 +4066,7 @@
             "md5sum": "5c5b2be1712c31429488351ad87d7602"
         },
         {
-            "dataPath": "params_shard_35.bin",
+            "dataPath": "params_shard_34.bin",
             "format": "raw-shard",
             "nbytes": 21574656,
             "records": [
@@ -4212,7 +4193,7 @@
             "md5sum": "3093f38f706264d7635d9923d16773f8"
         },
         {
-            "dataPath": "params_shard_36.bin",
+            "dataPath": "params_shard_35.bin",
             "format": "raw-shard",
             "nbytes": 32850432,
             "records": [
@@ -4307,7 +4288,7 @@
             "md5sum": "bb57dfea835b8ffa020d912c9692e4bc"
         },
         {
-            "dataPath": "params_shard_37.bin",
+            "dataPath": "params_shard_36.bin",
             "format": "raw-shard",
             "nbytes": 30200832,
             "records": [
@@ -4456,7 +4437,7 @@
             "md5sum": "7e4015e8767226772967cc94ce5efb3f"
         },
         {
-            "dataPath": "params_shard_38.bin",
+            "dataPath": "params_shard_37.bin",
             "format": "raw-shard",
             "nbytes": 29864448,
             "records": [
@@ -4573,7 +4554,7 @@
             "md5sum": "e6258c79ff753187af9bf186de480f29"
         },
         {
-            "dataPath": "params_shard_39.bin",
+            "dataPath": "params_shard_38.bin",
             "format": "raw-shard",
             "nbytes": 21574656,
             "records": [
@@ -4700,7 +4681,7 @@
             "md5sum": "056b82cd5d58c20215ab169277f6ad22"
         },
         {
-            "dataPath": "params_shard_40.bin",
+            "dataPath": "params_shard_39.bin",
             "format": "raw-shard",
             "nbytes": 32850432,
             "records": [
@@ -4795,7 +4776,7 @@
             "md5sum": "2bac729f595099ccf17e1dec1c78269e"
         },
         {
-            "dataPath": "params_shard_41.bin",
+            "dataPath": "params_shard_40.bin",
             "format": "raw-shard",
             "nbytes": 30200832,
             "records": [
@@ -4944,7 +4925,7 @@
             "md5sum": "57cde33ca020fd1399c9fe3bbe5605f1"
         },
         {
-            "dataPath": "params_shard_42.bin",
+            "dataPath": "params_shard_41.bin",
             "format": "raw-shard",
             "nbytes": 29864448,
             "records": [
@@ -5061,7 +5042,7 @@
             "md5sum": "db4f98b4a42aae2723c3c9555ef36290"
         },
         {
-            "dataPath": "params_shard_43.bin",
+            "dataPath": "params_shard_42.bin",
             "format": "raw-shard",
             "nbytes": 21574656,
             "records": [
@@ -5188,7 +5169,7 @@
             "md5sum": "9cb45d6ce37a091f6b93d3821aa78930"
         },
         {
-            "dataPath": "params_shard_44.bin",
+            "dataPath": "params_shard_43.bin",
             "format": "raw-shard",
             "nbytes": 32850432,
             "records": [
@@ -5283,7 +5264,7 @@
             "md5sum": "6c2e355a3053dceaa16da6a97c6f74ee"
         },
         {
-            "dataPath": "params_shard_45.bin",
+            "dataPath": "params_shard_44.bin",
             "format": "raw-shard",
             "nbytes": 30200832,
             "records": [
@@ -5432,7 +5413,7 @@
             "md5sum": "889a314cddcc0858279a1f3790805983"
         },
         {
-            "dataPath": "params_shard_46.bin",
+            "dataPath": "params_shard_45.bin",
             "format": "raw-shard",
             "nbytes": 29864448,
             "records": [
@@ -5549,7 +5530,7 @@
             "md5sum": "0f3a85c6ae1f70ea8c9d75a53a907496"
         },
         {
-            "dataPath": "params_shard_47.bin",
+            "dataPath": "params_shard_46.bin",
             "format": "raw-shard",
             "nbytes": 21574656,
             "records": [
@@ -5676,7 +5657,7 @@
             "md5sum": "ed7ab7a1fd3721c44e44cbabbe12f488"
         },
         {
-            "dataPath": "params_shard_48.bin",
+            "dataPath": "params_shard_47.bin",
             "format": "raw-shard",
             "nbytes": 32850432,
             "records": [
@@ -5771,7 +5752,7 @@
             "md5sum": "7411cf5641bb948430b5caaff8d6cab7"
         },
         {
-            "dataPath": "params_shard_49.bin",
+            "dataPath": "params_shard_48.bin",
             "format": "raw-shard",
             "nbytes": 30200832,
             "records": [
@@ -5920,7 +5901,7 @@
             "md5sum": "71be4963f3f150656b2c7cd4f1579de6"
         },
         {
-            "dataPath": "params_shard_50.bin",
+            "dataPath": "params_shard_49.bin",
             "format": "raw-shard",
             "nbytes": 29864448,
             "records": [
@@ -6037,7 +6018,7 @@
             "md5sum": "68dd934329549cf8c174b8db6b7681b7"
         },
         {
-            "dataPath": "params_shard_51.bin",
+            "dataPath": "params_shard_50.bin",
             "format": "raw-shard",
             "nbytes": 21574656,
             "records": [
@@ -6164,7 +6145,7 @@
             "md5sum": "5a51d1db0d528e564e747a2528cbf5f2"
         },
         {
-            "dataPath": "params_shard_52.bin",
+            "dataPath": "params_shard_51.bin",
             "format": "raw-shard",
             "nbytes": 32850432,
             "records": [
@@ -6259,7 +6240,7 @@
             "md5sum": "0a366680694bb78c68075812d03e9aa8"
         },
         {
-            "dataPath": "params_shard_53.bin",
+            "dataPath": "params_shard_52.bin",
             "format": "raw-shard",
             "nbytes": 30200832,
             "records": [
@@ -6408,7 +6389,7 @@
             "md5sum": "92d947e021cfa33c4acb15b87d529124"
         },
         {
-            "dataPath": "params_shard_54.bin",
+            "dataPath": "params_shard_53.bin",
             "format": "raw-shard",
             "nbytes": 29864448,
             "records": [
@@ -6525,7 +6506,7 @@
             "md5sum": "6d87635d108ea503c2946d90b76fd9cb"
         },
         {
-            "dataPath": "params_shard_55.bin",
+            "dataPath": "params_shard_54.bin",
             "format": "raw-shard",
             "nbytes": 8294400,
             "records": [
