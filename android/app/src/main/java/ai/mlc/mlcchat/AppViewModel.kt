@@ -1,6 +1,7 @@
 package ai.mlc.mlcchat
 
 import ai.mlc.mlcllm.ChatModule
+import android.annotation.SuppressLint
 import android.app.Application
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
@@ -27,6 +28,8 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.FileReader
 import java.nio.channels.Channels
+import java.util.Timer
+import java.util.TimerTask
 import java.util.UUID
 import java.util.concurrent.Executors
 import kotlin.concurrent.thread
@@ -187,7 +190,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         var modelInitState = mutableStateOf(ModelInitState.Initializing)
         private var paramsConfig = ParamsConfig(emptyList())
-        val progress = mutableStateOf(0)
+        val progress = mutableStateOf(0.0)
         val total = mutableStateOf(1)
         val id: UUID = UUID.randomUUID()
         private val remainingTasks = emptySet<DownloadTask>().toMutableSet()
@@ -274,8 +277,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         private fun switchToIndexing() {
             modelInitState.value = ModelInitState.Indexing
-            progress.value = 0
-            total.value = paramsConfig.paramsRecords.size
+            progress.value = 0.0
+            total.value = paramsConfig.paramsRecords.size + 19 // param_shard_0.bin is too huge
 //            total.value = modelConfig.tokenizerFiles.size + paramsConfig.paramsRecords.size
 //            for (tokenizerFilename in modelConfig.tokenizerFiles) {
 //                val file = File(modelDirFile, tokenizerFilename)
@@ -292,8 +295,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 //            }
             for (paramsRecord in paramsConfig.paramsRecords) {
                 val file = File(modelDirFile, paramsRecord.dataPath)
+                var value = 1
+                if (paramsRecord.dataPath == "params_shard_0.bin")
+                    value = 20
                 if (file.exists()) {
-                    ++progress.value
+                    progress.value += value
                 } else {
                     remainingTasks.add(
                         DownloadTask(
@@ -310,8 +316,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-
+        var timer = Timer()
         val task_map = mutableMapOf<Long, DownloadTask>()
+        var large_task_id: Long = -1
+        var last_large_progress: Long = 0
 
         inner class Reciever: BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
@@ -323,12 +331,29 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
+        inner class ProgressTask : TimerTask() {
+            @SuppressLint("Range")
+            public override fun run() {
+                val downloadQuery = DownloadManager.Query()
+                downloadQuery.setFilterById(large_task_id)
+                val cursor = downloadManager.query(downloadQuery);
+                if (cursor != null && cursor.moveToFirst()) {
+                    val total = cursor.getLong(cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+                    val cur = cursor.getLong(cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
+                    progress.value += (cur - last_large_progress).toFloat() / total * 19
+                    last_large_progress = cur
+                    cursor.close()
+                }
+            }
+        }
+
         private fun switchToDownloading() {
             val onDownloaded = Reciever()
             application.registerReceiver(onDownloaded, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
+            timer.schedule(ProgressTask(), 0, 1000)
 
             modelInitState.value = ModelInitState.Downloading
-            for (downloadTask in remainingTasks.reversed()) {
+            for (downloadTask in remainingTasks) {
                 if (downloadingTasks.size < maxDownloadTasks) {
                     handleNewDownload(downloadTask)
                 } else {
@@ -345,11 +370,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             val request = DownloadManager.Request(Uri.parse(downloadTask.url)).setDestinationInExternalFilesDir(application, Environment.DIRECTORY_DOWNLOADS, downloadTask.file.name)
             val task_id = downloadManager.enqueue(request)
             task_map[task_id] = downloadTask
+            if (downloadTask.file.name == "params_shard_0.bin") {
+                large_task_id = task_id
+            }
         }
 
         private fun handleNextDownload() {
             require(modelInitState.value == ModelInitState.Downloading)
-            for (downloadTask in remainingTasks.reversed()) {
+            for (downloadTask in remainingTasks) {
                 if (!downloadingTasks.contains(downloadTask)) {
                     handleNewDownload(downloadTask)
                     break
@@ -370,6 +398,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             if (modelInitState.value == ModelInitState.Downloading) {
                 if (remainingTasks.isEmpty()) {
                     if (downloadingTasks.isEmpty()) {
+                        timer.cancel()
                         switchToFinished()
                     }
                 } else {
@@ -392,13 +421,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         private fun clear() {
             val files = modelDirFile.listFiles { dir, name ->
-                !(dir == modelDirFile && name == ModelConfigFilename)
+                !(dir == modelDirFile && !name.startsWith("params"))
             }
             require(files != null)
             for (file in files) {
                 file.deleteRecursively()
                 require(!file.exists())
             }
+            File(modelDirFile.parent!!+"/Download").deleteRecursively()
             val modelConfigFile = File(modelDirFile, ModelConfigFilename)
             require(modelConfigFile.exists())
             switchToIndexing()
@@ -591,48 +621,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        fun test_performance() {
-            val outFile = File("/sdcard/Android/data/ai.mlc.mlcchat/files/Test/2.txt")
-            outFile.writeText("")
-            val reader = BufferedReader(FileReader("/sdcard/Android/data/ai.mlc.mlcchat/files/Test/instance2.jsonl"))
-            var prompt: String
-            while (reader.readLine().also { prompt = it } != null) {
-                val jo = JsonParser.parseString(prompt).asJsonObject
-                prompt = jo.get("prompt_inputs").asJsonArray[0].asString
-
-                var newText = ""
-                switchToGenerating()
-
-                    appendMessage(MessageRole.User, prompt)
-                    appendMessage(MessageRole.Bot, "")
-                    callBackend { backend.prefill("<用户>" + prompt + "<AI>") }
-                    while (!backend.stopped()) {
-                        callBackend {
-                            backend.decode()
-                            newText = backend.message
-                            viewModelScope.launch { updateMessage(MessageRole.Bot, newText) }
-                        }
-                    }
-                    val runtimeStats = backend.runtimeStatsText()
-                    viewModelScope.launch {
-                        report.value = runtimeStats
-                        if (modelChatState.value == ModelChatState.Generating) switchToReady()
-                    }
-                    outFile.appendText(newText.replace("\n","\\n")+"\n")
-
-                switchToResetting()
-                callBackend { backend.resetChat() }
-                clearHistory()
-                switchToReady()
-
-            }
-        }
-
         fun requestGenerate(prompt: String) {
             require(chatable())
-//            executorService.submit {
-//                test_performance()
-//            }
             var newText = ""
             switchToGenerating()
             executorService.submit {
