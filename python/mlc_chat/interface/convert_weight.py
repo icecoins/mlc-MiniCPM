@@ -127,39 +127,6 @@ def _convert_args(args: ConversionArgs) -> None:  # pylint: disable=too-many-loc
         green("Bits per parameter"),
         total_bytes * 8.0 / total_params,
     )
-    # import torch
-    # ckpt = torch.load("/Users/acha/Desktop/mlc-llm/dist/models/minicpm-gptq/pytorch_model.pt")
-    # block = ckpt["input_embedding.weight"][:, 128:128+32].half()
-    # q = param_dict['model.embed_tokens.q_weight'].numpy()[:, :4]
-    # s = param_dict['model.embed_tokens.q_scale'].numpy()[:, 4]
-    # z = param_dict['model.embed_tokens.q_zero'].numpy()[:, 4]
-    # maxq = 2**4-2
-    # xmin = block.min(1)[0]
-    # xmax = block.max(1)[0]
-    # scale = (xmax - xmin) / maxq
-    # zero = -xmin / scale
-    # quant = block/scale.unsqueeze(-1)+zero.unsqueeze(-1)
-    # from IPython import embed; embed()
-    # param_dict['model.embed_tokens.weight'].copyfrom(ckpt['state']["input_embedding.weight"].half().numpy())
-    # param_dict['model.norm.weight'].copyfrom(ckpt['state']["encoder.output_layernorm.weight"].half().numpy())
-    # param_dict['lm_head.weight'].copyfrom(ckpt['state']["input_embedding.weight"].half().numpy())
-    # for lnum in tqdm(range(40)):
-    #     hf_pfx = f"model.layers.{lnum}"
-    #     bmt_pfx = f"encoder.layers.{lnum}"
-        
-    #     param_dict[f"{hf_pfx}.input_layernorm.weight"].copyfrom(ckpt['state'][f"{bmt_pfx}.self_att.layernorm_before_attention.weight"].half().numpy())
-
-    #     param_dict[f"{hf_pfx}.self_attn.q_proj.weight"] = ckpt[f"{bmt_pfx}.self_att.self_attention.project_q.weight"].contiguous()
-    #     param_dict[f"{hf_pfx}.self_attn.k_proj.weight"] = ckpt[f"{bmt_pfx}.self_att.self_attention.project_k.weight"].contiguous()
-    #     param_dict[f"{hf_pfx}.self_attn.v_proj.weight"] = ckpt[f"{bmt_pfx}.self_att.self_attention.project_v.weight"].contiguous()
-    #     param_dict[f"{hf_pfx}.self_attn.o_proj.q_weight"] = ckpt['state'][f"{bmt_pfx}.self_att.self_attention.attention_out.weight"].contiguous()
-
-    #     param_dict[f"{hf_pfx}.post_attention_layernorm.weight"].copyfrom(ckpt['state'][f"{bmt_pfx}.ffn.layernorm_before_ffn.weight"].half().numpy())
-
-    #     param_dict[f"{hf_pfx}.mlp.gate_proj.weight"] = ckpt[f"{bmt_pfx}.ffn.ffn.w_in.w_0.weight"].contiguous()
-    #     param_dict[f"{hf_pfx}.mlp.up_proj.weight"] = ckpt[f"{bmt_pfx}.ffn.ffn.w_in.w_1.weight"].contiguous()
-
-    #     param_dict[f"{hf_pfx}.mlp.down_proj.q_weight"] = ckpt['state'][f"{bmt_pfx}.ffn.ffn.w_out.weight"].contiguous()
     # dump to output directory
     tvmjs.dump_ndarray_cache(
         param_dict,

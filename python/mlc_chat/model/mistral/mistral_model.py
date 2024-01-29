@@ -363,23 +363,19 @@ class MistralModel(nn.Module):
 
     def forward(  # pylint: disable=too-many-arguments
         self,
-        inputs: Tensor,
+        hidden_states: Tensor,
         rolling_cache_len: tir.Var,
         kv_seq_len: tir.Var,
         cache_offset: tir.Var,
         attention_mask: Tensor,
     ):
         """Forward pass of the model, passing through all decoder layers."""
-        if self.tensor_parallel_shards > 1:
-            inputs = op.ccl_broadcast_from_worker0(inputs)
-        hidden_states = self.embed_tokens(inputs) * 12.0
         for layer in self.layers:
             hidden_states = layer(
                 hidden_states, attention_mask, rolling_cache_len, kv_seq_len, cache_offset
             )
         hidden_states = self.norm(hidden_states)
         return hidden_states
-
 
 class MistralForCasualLM(nn.Module):
     """Same as LlamaForCausalLM, except for the use of sliding window attention."""
@@ -395,6 +391,15 @@ class MistralForCasualLM(nn.Module):
         super().to(dtype=dtype)
         if dtype is not None:
             self.dtype = dtype
+
+    def embed(
+        self,
+        inputs: Tensor,
+    ):
+        if self.model.tensor_parallel_shards > 1:
+            inputs = op.ccl_broadcast_from_worker0(inputs)
+        inputs = self.model.embed_tokens(inputs) * 12.0
+        return inputs
 
     def forward(  # pylint: disable=too-many-arguments
         self,
@@ -473,6 +478,7 @@ class MistralForCasualLM(nn.Module):
                 self.sliding_window_size,
             ],
         )
+        inputs = self.embed(inputs)
         return self.forward(inputs, rolling_cache_len, kv_seq_len, cache_offset, attention_mask)
 
     def decode(
@@ -489,6 +495,7 @@ class MistralForCasualLM(nn.Module):
             fill_value=tir.max_value(self.dtype),
             dtype=self.dtype,
         )
+        inputs = self.embed(inputs)
         return self.forward(inputs, rolling_cache_len, kv_seq_len, cache_offset, attention_mask)
 
     def softmax_with_temperature(self, logits: Tensor, temperature: Tensor):
@@ -529,3 +536,73 @@ class MistralForCasualLM(nn.Module):
             },
         }
         return nn.spec.ModuleSpec.from_raw(mod_spec, self)
+
+
+class VisMiniCPM(nn.Module):
+    def __init__(self, config: MistralConfig):
+        self.llm = MistralForCasualLM(config)
+        self.dtype = "float32"
+
+    def to(self, dtype: Optional[str] = None):
+        super().to(dtype=dtype)
+        if dtype is not None:
+            self.dtype = dtype
+
+    def prefill(
+        self,
+        inputs: Tensor,
+        rolling_cache_len: tir.Var,
+        kv_seq_len: tir.Var,
+        cache_offset: tir.Var,
+    ):
+        return self.llm.prefill(inputs, rolling_cache_len, kv_seq_len, cache_offset)
+
+    def decode(
+        self,
+        inputs: Tensor,
+        rolling_cache_len: tir.Var,
+        kv_seq_len: tir.Var,
+        cache_offset: tir.Var,
+    ):
+        return self.llm.decode(inputs, rolling_cache_len, kv_seq_len, cache_offset)
+
+    def softmax_with_temperature(self, logits: Tensor, temperature: Tensor):
+        """Softmax."""
+        return op.softmax(logits / temperature, axis=-1)
+
+    def get_default_spec(self):
+        """Needed for ``export_tvm()``."""
+        batch_size = 1
+        mod_spec = {
+            "prefill": {
+                "inputs": nn.spec.Tensor([batch_size, "seq_len"], "int32"),
+                "rolling_cache_len": int,
+                "kv_seq_len": int,
+                "cache_offset": int,
+                "$": {
+                    "param_mode": "packed",
+                    "effect_mode": "packed",
+                },
+            },
+            "decode": {
+                "inputs": nn.spec.Tensor([batch_size, 1], "int32"),
+                "rolling_cache_len": int,
+                "kv_seq_len": int,
+                "cache_offset": int,
+                "$": {
+                    "param_mode": "packed",
+                    "effect_mode": "packed",
+                },
+            },
+            "softmax_with_temperature": {
+                "logits": nn.spec.Tensor([1, 1, "vocab_size"], "float32"),
+                "temperature": nn.spec.Tensor([], "float32"),
+                "$": {
+                    "param_mode": "none",
+                    "effect_mode": "none",
+                },
+            },
+        }
+        return nn.spec.ModuleSpec.from_raw(mod_spec, self)
+
+

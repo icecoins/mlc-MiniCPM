@@ -842,6 +842,18 @@ class LLMChat {
    * \param decode_next_token Whether to decode next token.
    * \param place_in_prompt The place of the input message in the prompt.
    */
+  void ImageStep(std::string inp, bool append_conversation = true, bool decode_next_token = true,
+                   PlaceInPrompt place_in_prompt = PlaceInPrompt::kAll,
+                   String generation_config_str = "") {
+  }
+
+  /*!
+   * \brief Generate the next token given a prompt. Can optionally decode the output next token.
+   * \param inp The input text string.
+   * \param append_conversation Whether to append the input message to conversation.
+   * \param decode_next_token Whether to decode next token.
+   * \param place_in_prompt The place of the input message in the prompt.
+   */
   void PrefillStep(std::string inp, bool append_conversation = true, bool decode_next_token = true,
                    PlaceInPrompt place_in_prompt = PlaceInPrompt::kAll,
                    String generation_config_str = "") {
@@ -1556,6 +1568,10 @@ class LLMChatModule : public ModuleNode {
         ICHECK_EQ(args.size(), 2);
         std::string s = GetChat()->RawGenerate(args[0], args[1]);
         *rv = s;
+      });
+    } else if (name == "image") {
+      return PackedFunc([this, sptr_to_self](TVMArgs args, TVMRetValue* rv) {
+          GetChat()->ImageStep(args[0]);
       });
     } else if (name == "prefill") {
       return PackedFunc([this, sptr_to_self](TVMArgs args, TVMRetValue* rv) {

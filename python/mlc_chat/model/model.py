@@ -74,7 +74,20 @@ MODELS: Dict[str, Model] = {
             "awq": llama_quantization.awq_quant,
         },
     ),
-    "mistral": Model(
+    "vis_minicpm": Model(
+        name="vis_mistral",
+        model=mistral_model.VisMiniCPM,
+        config=mistral_model.MistralConfig,
+        source={
+            "huggingface-torch": mistral_loader.huggingface_vis,
+            "huggingface-safetensor": mistral_loader.huggingface_vis,
+            "awq": mistral_loader.awq,
+        },
+        quantize={
+            "group-quant": mistral_quantization.group_quant_vis,
+        },
+    ),
+    "minicpm": Model(
         name="mistral",
         model=mistral_model.MistralForCasualLM,
         config=mistral_model.MistralConfig,

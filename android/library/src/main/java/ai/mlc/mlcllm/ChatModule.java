@@ -8,6 +8,7 @@ public class ChatModule {
     private Function reloadFunc;
     private Function unloadFunc;
     private Function prefillFunc;
+    private Function imageFunc;
     private Function decodeFunc;
     private Function getMessage;
     private Function stoppedFunc;
@@ -22,6 +23,7 @@ public class ChatModule {
         reloadFunc = llmChat.getFunction("reload");
         unloadFunc = llmChat.getFunction("unload");
         prefillFunc = llmChat.getFunction("prefill");
+        imageFunc = llmChat.getFunction("image");
         decodeFunc = llmChat.getFunction("decode");
         getMessage = llmChat.getFunction("get_message");
         stoppedFunc = llmChat.getFunction("stopped");
@@ -49,6 +51,10 @@ public class ChatModule {
 
     public void prefill(String input) {
         prefillFunc.pushArg(input).invoke();
+    }
+
+    public void image(String input) {
+        imageFunc.pushArg(input).invoke();
     }
 
     public String getMessage() {

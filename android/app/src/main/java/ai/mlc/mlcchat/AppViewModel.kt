@@ -127,7 +127,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         localIdSet.clear()
         modelSampleList.clear()
         for (modelRecord in appConfig.modelList) {
-            extract_from_asset("minicpm", appCacheFile?.absolutePath+'/'+modelRecord.localId)
+            extract_from_asset(modelRecord.localId, appCacheFile?.absolutePath+'/'+modelRecord.localId)
 //            download_from_web(modelRecord.modelUrl, appCacheFile?.absolutePath+'/'+modelRecord.localId)
             val modelDirFile = File(appCacheFile, modelRecord.localId)
             val modelConfigFile = File(modelDirFile, ModelConfigFilename)
