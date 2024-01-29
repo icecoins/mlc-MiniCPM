@@ -53,8 +53,8 @@ public class ChatModule {
         prefillFunc.pushArg(input).invoke();
     }
 
-    public void image(String input) {
-        imageFunc.pushArg(input).invoke();
+    public void image() {
+        imageFunc.invoke();
     }
 
     public String getMessage() {

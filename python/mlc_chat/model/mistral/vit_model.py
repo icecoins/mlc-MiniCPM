@@ -128,15 +128,17 @@ class ViTDecoderLayer(nn.Module):
 
 class Conv2d(nn.Module):
     def __init__(self, chan_in, chan_out, kernel_size, stride):
-        self.weight = nn.Parameter((chan_out, chan_in, kernel_size, kernel_size))
+        self.weight = nn.Parameter((chan_out, chan_in, kernel_size, stride))
         self.bias = nn.Parameter((chan_out,))
+        self.kernel_size = kernel_size
+        self.stride = stride
 
     def forward(
         self,
         x: Tensor,
     ):
-        x = op.conv2d(x, self.weight, stride=self.kernel_size)
-        x = x + self.bias.reshape(1, self.bias.shape[0], 1, 1)
+        x = op.conv2d(x, self.weight, stride=self.stride)
+        x = x + self.bias.reshape([1, self.bias.shape[0], 1, 1])
         return x
 
 class PatchEmbed(nn.Module):
@@ -151,7 +153,7 @@ class PatchEmbed(nn.Module):
         inputs: Tensor
     ):
         embed = self.proj(inputs)
-        embed = embed.reshape(embed.shape[0], embed.shape[1], embed.shape[2]*embed.shape[3])
+        embed = embed.reshape([embed.shape[0], embed.shape[1], embed.shape[2]*embed.shape[3]])
         return embed.permute_dims([0, 2, 1])
 
 class ViT(nn.Module):
@@ -164,6 +166,12 @@ class ViT(nn.Module):
         )
         self.norm = nn.LayerNorm(config.hidden_size, -1, config.norm_eps)
         self.config = config
+        self.dtype = "float32"
+
+    def to(self, dtype: Optional[str] = None):
+        super().to(dtype=dtype)
+        if dtype is not None:
+            self.dtype = dtype
     
     def forward(
         self,
@@ -195,7 +203,6 @@ class ViT(nn.Module):
 
         hidden_states = self.patch_embed(inputs)
         hidden_states = hidden_states + self.pos_embed
-        hidden_states = self.pos_embed(hidden_states)
         for layer in self.blocks:
             hidden_states = layer(
                 hidden_states, attention_mask

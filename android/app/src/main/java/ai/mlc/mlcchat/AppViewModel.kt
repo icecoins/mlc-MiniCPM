@@ -608,7 +608,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             this.modelPath = modelPath
             executorService.submit {
                 viewModelScope.launch {
-                    Toast.makeText(application, "Initialize...", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(application, "Initialize...", Toast.LENGTH_LONG).show()
                 }
                 if (!callBackend {
                         backend.unload()

@@ -482,6 +482,60 @@ class MistralForCasualLM(nn.Module):
         inputs = self.embed(inputs)
         return self.forward(inputs, rolling_cache_len, kv_seq_len, cache_offset, attention_mask)
 
+    def prefill_embed(
+        self,
+        inputs: Tensor,
+        rolling_cache_len: tir.Var,
+        kv_seq_len: tir.Var,
+        cache_offset: tir.Var,
+    ):
+        """
+        Prefilling the prompt.
+
+        Parameters
+        ----------
+        inputs: Tensor
+            Input tokens, having ``seq_len`` number of embeddings.
+
+        rolling_cache_len: tir.Var
+            Number of elements currently in the cache.
+
+        kv_seq_len: tir.Var
+            Equals to ``seq_len + rolling_cache_len``.
+
+        cache_offset: tir.Var
+            Next position to be overrided on the rolling kv cache.
+        """
+        def _sliding_window_attention_mask(
+            batch_size, seq_len, rolling_cache_len, kv_seq_len, sliding_window_size
+        ):
+            # See `tests/legacy-python/test_sliding_window_mask.py` for its behavior
+            return te.compute(
+                (batch_size, 1, seq_len, kv_seq_len),
+                lambda b, _, i, j: tir.Select(
+                    tir.all(
+                        i + rolling_cache_len >= j, i + rolling_cache_len - j < sliding_window_size
+                    ),
+                    tir.max_value(self.dtype),
+                    tir.min_value(self.dtype),
+                ),
+                name="sliding_window_attention_mask_prefill",
+            )
+
+        batch_size, seq_len, _ = inputs.shape
+        attention_mask = op.tensor_expr_op(
+            _sliding_window_attention_mask,
+            name_hint="sliding_window_attention_mask_prefill",
+            args=[
+                batch_size,
+                seq_len,
+                rolling_cache_len,
+                kv_seq_len,
+                self.sliding_window_size,
+            ],
+        )
+        return self.forward(inputs, rolling_cache_len, kv_seq_len, cache_offset, attention_mask)
+
     def decode(
         self,
         inputs: Tensor,
@@ -555,6 +609,12 @@ class Resampler(nn.Module):
         self.ln_kv = nn.LayerNorm(self.embed_dim, eps=config.norm_eps)
         self.ln_post = nn.LayerNorm(self.embed_dim, eps=config.norm_eps)
         self.proj = nn.Parameter((self.embed_dim, self.embed_dim))
+        self.dtype = "float32"
+
+    def to(self, dtype: Optional[str] = None):
+        super().to(dtype=dtype)
+        if dtype is not None:
+            self.dtype = dtype
 
     def forward(
         self, 
@@ -566,12 +626,12 @@ class Resampler(nn.Module):
         q = self.ln_q(self.query)
 
         def _attention_mask(
-            batch_size, seq_len,
+            batch_size, q_len, k_len,
         ):
             # See `tests/legacy-python/test_sliding_window_mask.py` for its behavior
             return te.compute(
-                (batch_size, seq_len, seq_len),
-                lambda b, i, j: tir.max_value(self.dtype),
+                (batch_size, 1, q_len, k_len),
+                lambda b, _, i, j: tir.max_value(self.dtype),
                 name="_attention_mask",
             )
 
@@ -580,14 +640,15 @@ class Resampler(nn.Module):
             name_hint="_attention_mask",
             args=[
                 1,
+                self.num_queries,
                 self.image_len,
             ],
         )
 
         x = op_ext.attention(
-            (q + self.pos_embed).reshape(1, self.pos_embed.shape[0], self.pos_embed.shape[1]),
-            x + self.pos_embed_k.reshape(1, self.pos_embed_k.shape[0], self.pos_embed_k.shape[1]),
-            x,
+            (q + self.pos_embed).reshape([1, self.pos_embed.shape[0], 1, self.pos_embed.shape[1]]),
+            x.reshape([1, x.shape[1], 1, x.shape[2]]) + self.pos_embed_k.reshape([1, self.pos_embed_k.shape[0], 1, self.pos_embed_k.shape[1]]),
+            x.reshape([1, x.shape[1], 1, x.shape[2]]),
             attention_mask
         )
 
@@ -602,6 +663,23 @@ class VisMiniCPM(nn.Module):
         self.llm = MistralForCasualLM(config)
         self.vpm = ViT(vit_config)
         self.resampler = Resampler(vit_config)
+        self.dtype = "float32"
+
+    def to(self, dtype: Optional[str] = None):
+        super().to(dtype=dtype)
+        if dtype is not None:
+            self.dtype = dtype
+
+    def image(
+        self,
+        inputs: Tensor,
+        rolling_cache_len: tir.Var,
+        kv_seq_len: tir.Var,
+        cache_offset: tir.Var,
+    ):
+        inputs = self.vpm(inputs)
+        inputs = self.resampler(inputs)
+        return self.llm.prefill_embed(inputs, rolling_cache_len, kv_seq_len, cache_offset)
 
     def prefill(
         self,
@@ -629,6 +707,16 @@ class VisMiniCPM(nn.Module):
         """Needed for ``export_tvm()``."""
         batch_size = 1
         mod_spec = {
+            "image": {
+                "inputs": nn.spec.Tensor([batch_size, 3, 448, 448], self.dtype),
+                "rolling_cache_len": int,
+                "kv_seq_len": int,
+                "cache_offset": int,
+                "$": {
+                    "param_mode": "packed",
+                    "effect_mode": "packed",
+                },
+            },
             "prefill": {
                 "inputs": nn.spec.Tensor([batch_size, "seq_len"], "int32"),
                 "rolling_cache_len": int,

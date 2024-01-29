@@ -231,6 +231,7 @@ struct FunctionTable {
   }
 
   void _InitFunctions() {
+    this->image_func_ = mod_get_func("image");
     this->prefill_func_ = mod_get_func("prefill");
     this->embed_func_ = mod_get_func("embed");
     this->prefill_with_embed_func_ = mod_get_func("prefill_with_embed");
@@ -281,6 +282,7 @@ struct FunctionTable {
   TypedPackedFunc<PackedFunc(const std::string&)> mod_get_func;
   TypedPackedFunc<PackedFunc(const std::string&)> get_global_func;
 
+  PackedFunc image_func_;
   PackedFunc prefill_func_;
   PackedFunc embed_func_;
   PackedFunc prefill_with_embed_func_;
@@ -842,9 +844,11 @@ class LLMChat {
    * \param decode_next_token Whether to decode next token.
    * \param place_in_prompt The place of the input message in the prompt.
    */
-  void ImageStep(std::string inp, bool append_conversation = true, bool decode_next_token = true,
-                   PlaceInPrompt place_in_prompt = PlaceInPrompt::kAll,
-                   String generation_config_str = "") {
+  void ImageStep(NDArray img) {
+    PrefillStep("<image>");
+    ft_.image_func_(img, ShapeTuple{1}, ShapeTuple{65}, ShapeTuple{sliding_window_cache_offset_}, kv_cache_, params_);
+    total_seq_len_ += 64;
+    PrefillStep("</image>");
   }
 
   /*!
@@ -1571,7 +1575,14 @@ class LLMChatModule : public ModuleNode {
       });
     } else if (name == "image") {
       return PackedFunc([this, sptr_to_self](TVMArgs args, TVMRetValue* rv) {
-          GetChat()->ImageStep(args[0]);
+        if (args.size() == 0) {
+          std::vector<float> fake_image(3*448*448);
+          for (int i = 0; i < 3*448*448; ++i) fake_image[i] = 0.;
+          NDArray fake = NDArray::Empty({1, 3, 448, 448}, DataType::Float(32), device_);
+          fake.CopyFromBytes(fake_image.data(), fake_image.size() * sizeof(float_t));
+          GetChat()->ImageStep(fake);
+        } else if (args.size() == 1) {
+        }
       });
     } else if (name == "prefill") {
       return PackedFunc([this, sptr_to_self](TVMArgs args, TVMRetValue* rv) {
