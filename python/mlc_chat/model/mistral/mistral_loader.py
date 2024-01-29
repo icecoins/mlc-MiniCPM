@@ -12,6 +12,26 @@ from mlc_chat.quantization import Quantization
 from .mistral_model import MistralConfig, MistralForCasualLM, VisMiniCPM
 from .mistral_quantization import awq_quant
 
+import math
+import torch
+from torch.nn import functional as F
+from timm.layers import resample_abs_pos_embed
+
+def get_abs_pos(abs_pos, tgt_size):
+    src_size = int(math.sqrt(abs_pos.size(0)))
+    tgt_size = int(math.sqrt(tgt_size))
+    dtype = abs_pos.dtype
+
+    if src_size != tgt_size:
+        return F.interpolate(
+            abs_pos.float().reshape(1, src_size, src_size, -1).permute(0, 3, 1, 2),
+            size=(tgt_size, tgt_size),
+            mode="bicubic",
+            align_corners=False,
+        ).permute(0, 2, 3, 1).flatten(0, 2).to(dtype=dtype)
+    else:
+        return abs_pos
+
 def huggingface_vis(model_config: MistralConfig, quantization: Quantization) -> ExternMapping:
     """Returns a parameter mapping that maps from the names of MLC LLM parameters to
     the names of HuggingFace PyTorch parameters.
@@ -75,8 +95,33 @@ def huggingface_vis(model_config: MistralConfig, quantization: Quantization) -> 
         # inv_freq is not used in the model
         mapping.add_unused(f"{attn}.rotary_emb.inv_freq")
 
+        # pos_embed is hard to compute
+        mlc_name = f"vpm.pos_embed"
+        mlc_param = named_parameters[mlc_name]
+        mapping.add_mapping(
+            mlc_name,
+            [mlc_name,],
+            functools.partial(
+                lambda pos_embed, dtype: resample_abs_pos_embed(torch.from_numpy(pos_embed), (32, 32), num_prefix_tokens=0).numpy().astype(dtype),
+                dtype=mlc_param.dtype
+            )
+        )
+
+        mlc_name = f"resampler.pos_embed_k"
+        mlc_param = named_parameters[mlc_name]
+        mapping.add_mapping(
+            mlc_name,
+            ["resampler.pos_embed",],
+            functools.partial(
+                lambda pos_embed, dtype: get_abs_pos(torch.from_numpy(pos_embed), 1024).numpy().astype(dtype),
+                dtype=mlc_param.dtype
+            )
+        )
+
+
     for mlc_name, mlc_param in named_parameters.items():
         if mlc_name not in mapping.param_map:
+            print("here", mlc_name)
             mapping.add_mapping(
                 mlc_name,
                 [mlc_name],

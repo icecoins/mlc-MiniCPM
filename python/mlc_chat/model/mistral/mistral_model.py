@@ -17,6 +17,7 @@ from mlc_chat.support.style import bold
 
 logger = logging.getLogger(__name__)
 
+from .vit_model import ViT, ViTConfig
 
 @dataclasses.dataclass
 class MistralConfig(ConfigBase):  # pylint: disable=too-many-instance-attributes
@@ -538,15 +539,69 @@ class MistralForCasualLM(nn.Module):
         return nn.spec.ModuleSpec.from_raw(mod_spec, self)
 
 
+class Resampler(nn.Module):
+    def __init__(self, config: ViTConfig):
+        self.num_queries = config.num_query
+        self.embed_dim = config.output_dim
+        self.num_heads = config.output_dim // 128
+        self.kv_dim = config.hidden_size
+        self.image_len = config.image_len
+
+        self.pos_embed = nn.Parameter((self.num_queries, self.embed_dim), dtype='float32')
+        self.pos_embed_k = nn.Parameter((self.image_len, self.embed_dim), dtype='float32')
+        self.query = nn.Parameter((self.num_queries, self.embed_dim))
+        self.kv_proj = nn.Linear(self.kv_dim, self.embed_dim, bias=False)
+        self.ln_q = nn.LayerNorm(self.embed_dim, eps=config.norm_eps)
+        self.ln_kv = nn.LayerNorm(self.embed_dim, eps=config.norm_eps)
+        self.ln_post = nn.LayerNorm(self.embed_dim, eps=config.norm_eps)
+        self.proj = nn.Parameter((self.embed_dim, self.embed_dim))
+
+    def forward(
+        self, 
+        x : Tensor, # (1, 1024, 1152)
+    ):
+        x = self.kv_proj(x)
+        x = self.ln_kv(x)
+
+        q = self.ln_q(self.query)
+
+        def _attention_mask(
+            batch_size, seq_len,
+        ):
+            # See `tests/legacy-python/test_sliding_window_mask.py` for its behavior
+            return te.compute(
+                (batch_size, seq_len, seq_len),
+                lambda b, i, j: tir.max_value(self.dtype),
+                name="_attention_mask",
+            )
+
+        attention_mask = op.tensor_expr_op(
+            _attention_mask,
+            name_hint="_attention_mask",
+            args=[
+                1,
+                self.image_len,
+            ],
+        )
+
+        x = op_ext.attention(
+            (q + self.pos_embed).reshape(1, self.pos_embed.shape[0], self.pos_embed.shape[1]),
+            x + self.pos_embed_k.reshape(1, self.pos_embed_k.shape[0], self.pos_embed_k.shape[1]),
+            x,
+            attention_mask
+        )
+
+        x = self.ln_post(x)
+
+        x = op.matmul(x, self.proj)
+        return x
+
 class VisMiniCPM(nn.Module):
     def __init__(self, config: MistralConfig):
+        vit_config = ViTConfig()
         self.llm = MistralForCasualLM(config)
-        self.dtype = "float32"
-
-    def to(self, dtype: Optional[str] = None):
-        super().to(dtype=dtype)
-        if dtype is not None:
-            self.dtype = dtype
+        self.vpm = ViT(vit_config)
+        self.resampler = Resampler(vit_config)
 
     def prefill(
         self,
