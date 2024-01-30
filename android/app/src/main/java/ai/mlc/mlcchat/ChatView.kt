@@ -219,45 +219,8 @@ fun MessageView(messageData: MessageData, activity: Activity) {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (messageData.image_path != "") {
-                    /*
-                    if(ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED){
-                        //ActivityCompat.requestPermissions(activity,
-                        //    arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
-                        //    1
-                        //)
-                        local_activity.requestPermissionLauncher.launch(
-                            Manifest.permission.READ_EXTERNAL_STORAGE)
-                    }
-                    */
-                    when {
-                        ContextCompat.checkSelfPermission(
-                            activity,
-                            Manifest.permission.READ_EXTERNAL_STORAGE
-                        ) == PackageManager.PERMISSION_GRANTED -> {
-                            // You can use the API that requires the permission.
-                            //startCamera()
-                            activity.has_permision = true
-
-                            makeText(activity, "Start Image", LENGTH_SHORT).show()
-                        }
-                        ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.READ_EXTERNAL_STORAGE) -> {
-                            // In an educational UI, explain to the user why your app requires this
-                            // permission for a specific feature to behave as expected. In this UI,
-                            // include a "cancel" or "no thanks" button that allows the user to
-                            // continue using your app without granting the permission.
-                            makeText(activity, "Image is necessary to add content.", LENGTH_SHORT).show()
-                        }
-                        else -> {
-                            // You can directly ask for the permission.
-                            // The registered ActivityResultCallback gets the result of this request.
-                            local_activity.requestPermissionLauncher.launch(
-                                Manifest.permission.READ_EXTERNAL_STORAGE)
-                        }
-                    }
-
-                    if(local_activity.has_permision){
-                        var bitmap = getImage(messageData.image_path)
-                        if (bitmap != null) {
+                    var bitmap = getImage(messageData.image_path)
+                    if (bitmap != null) {
                             Image(
                                 bitmap.asImageBitmap(),
                                 "",
@@ -271,7 +234,7 @@ fun MessageView(messageData: MessageData, activity: Activity) {
                                     .widthIn(max = 300.dp) )
                             local_activity.has_image = true
                         }
-                    }
+
                 }
                 else{
                     Text(
@@ -295,41 +258,6 @@ fun MessageView(messageData: MessageData, activity: Activity) {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (messageData.image_path != "") {
-                    /*
-                    if(ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED){
-                        //ActivityCompat.requestPermissions(activity,
-                        //    arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
-                        //    1
-                        //)
-                        local_activity.requestPermissionLauncher.launch(
-                            Manifest.permission.READ_EXTERNAL_STORAGE)
-                    }*/
-                    when {
-                        ContextCompat.checkSelfPermission(
-                            activity,
-                            Manifest.permission.READ_EXTERNAL_STORAGE
-                        ) == PackageManager.PERMISSION_GRANTED -> {
-                            // You can use the API that requires the permission.
-                            //startCamera()
-                            activity.has_permision = true
-                            makeText(activity, "Start Image", LENGTH_SHORT).show()
-                        }
-
-                        ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.READ_EXTERNAL_STORAGE) -> {
-                            // In an educational UI, explain to the user why your app requires this
-                            // permission for a specific feature to behave as expected. In this UI,
-                            // include a "cancel" or "no thanks" button that allows the user to
-                            // continue using your app without granting the permission.
-                            makeText(activity, "Image is necessary to add content.", LENGTH_SHORT).show()
-                        }
-                        else -> {
-                            // You can directly ask for the permission.
-                            // The registered ActivityResultCallback gets the result of this request.
-                            local_activity.requestPermissionLauncher.launch(
-                                Manifest.permission.READ_EXTERNAL_STORAGE)
-                        }
-                    }
-                    if (local_activity.has_permision){
                         var bitmap = getImage(messageData.image_path)
                         if (bitmap != null) {
                             Image(
@@ -345,7 +273,6 @@ fun MessageView(messageData: MessageData, activity: Activity) {
                                     .widthIn(max = 300.dp) )
                             local_activity.has_image = true
                         }
-                    }
                 }else{
                     Text(
                         text = messageData.text,

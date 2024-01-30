@@ -27,6 +27,8 @@ import android.os.Environment
 import android.provider.DocumentsContract
 import android.text.TextUtils
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 
 object RealPathUtil {
 
@@ -193,27 +195,10 @@ object RealPathUtil {
         return "com.google.android.apps.photos.content" == uri.authority
     }
 }
-/**
- * 检查权限
- * [op]这个参数请参考 AppOpsManager.OPSTR_CAMERA 这些常量
- * 返回值请参考 AppOpsManager.MODE_ALLOWED 这些常量
- */
-fun checkPermissions(context: Context, packageName: String, op: String): Int {
-    try {
-        val uid: Int = context.getPackageManager().getPackageUid(packageName, 0)
-        val appOpsManager = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-        val result = appOpsManager.checkOp(op, uid, packageName)
-        return result
-    } catch (e: SecurityException) {
-        e.printStackTrace()
-        return -1
-    }
-}
 
 
 class MainActivity : ComponentActivity() {
     var image_path = ""
-    var has_permision = true
     var has_image = false
     lateinit  var image_data : Array<Char>
 
@@ -226,7 +211,6 @@ class MainActivity : ComponentActivity() {
                 // Permission is granted. Continue the action or workflow in your
                 // app.
                 Log.v("get_image", "get permissions")
-                has_permision = true
             } else {
                 // Explain to the user that the feature is unavailable because the
                 // feature requires a permission that the user has denied. At the
@@ -242,6 +226,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         chatState = AppViewModel(this.application).ChatState()
+        if(ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED){
+            ActivityCompat.requestPermissions(this,
+                arrayOf(
+                    android.Manifest.permission.READ_MEDIA_IMAGES,
+                    android.Manifest.permission.READ_MEDIA_AUDIO,
+                    android.Manifest.permission.READ_MEDIA_VIDEO,
+                    ),
+                1
+            )
+            requestPermissionLauncher.launch(
+                android.Manifest.permission.READ_MEDIA_IMAGES)
+        }
         setContent {
             Surface(
                 modifier = Modifier
@@ -253,7 +249,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-/*
+
     @Deprecated("Deprecated in Java")
     override fun onRequestPermissionsResult(
         requestCode: Int,
@@ -264,23 +260,9 @@ class MainActivity : ComponentActivity() {
         if(requestCode == 1){
             if(grantResults.size > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED){
                 Log.v("get_image", "get permissions")
-                has_permision = true
             }
         }else{
             Log.v("get_image", "not get permissions")
-        }
-    }
-*/
-    private fun getFilePathFromUri(contentUri: Uri): String {
-        var cursor: Cursor? = null
-        return try {
-            val proj = arrayOf(MediaStore.Images.Media.DATA)
-            cursor = contentResolver.query(contentUri, proj, null, null, null)
-            val columnIndex = cursor!!.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
-            cursor.moveToFirst()
-            cursor.getString(columnIndex)
-        } finally {
-            cursor?.close()
         }
     }
 
