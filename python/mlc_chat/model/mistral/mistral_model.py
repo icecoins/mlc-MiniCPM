@@ -601,20 +601,16 @@ class Resampler(nn.Module):
         self.kv_dim = config.hidden_size
         self.image_len = config.image_len
 
-        self.pos_embed = nn.Parameter((self.num_queries, self.embed_dim), dtype='float32')
-        self.pos_embed_k = nn.Parameter((self.image_len, self.embed_dim), dtype='float32')
+        self.pos_embed = nn.Parameter((self.num_queries, self.embed_dim))
+        self.pos_embed_k = nn.Parameter((self.image_len, self.embed_dim))
         self.query = nn.Parameter((self.num_queries, self.embed_dim))
         self.kv_proj = nn.Linear(self.kv_dim, self.embed_dim, bias=False)
-        self.ln_q = nn.LayerNorm(self.embed_dim, eps=config.norm_eps)
-        self.ln_kv = nn.LayerNorm(self.embed_dim, eps=config.norm_eps)
-        self.ln_post = nn.LayerNorm(self.embed_dim, eps=config.norm_eps)
+        self.ln_q = nn.LayerNorm(self.embed_dim, config.norm_eps)
+        self.ln_kv = nn.LayerNorm(self.embed_dim, config.norm_eps)
+        self.ln_post = nn.LayerNorm(self.embed_dim, config.norm_eps)
         self.proj = nn.Parameter((self.embed_dim, self.embed_dim))
-        self.dtype = "float32"
+        self.dtype = 'float32'
 
-    def to(self, dtype: Optional[str] = None):
-        super().to(dtype=dtype)
-        if dtype is not None:
-            self.dtype = dtype
 
     def forward(
         self, 
@@ -665,11 +661,6 @@ class VisMiniCPM(nn.Module):
         self.resampler = Resampler(vit_config)
         self.dtype = "float32"
 
-    def to(self, dtype: Optional[str] = None):
-        super().to(dtype=dtype)
-        if dtype is not None:
-            self.dtype = dtype
-
     def image(
         self,
         inputs: Tensor,
@@ -678,9 +669,9 @@ class VisMiniCPM(nn.Module):
         cache_offset: tir.Var,
     ):
         inputs = (inputs.astype(self.dtype) / 255. - 0.5) / 0.5
-        return inputs.astype("float32")
         inputs = self.vpm(inputs)
         inputs = self.resampler(inputs)
+        return inputs.astype("float32")
         return self.llm.prefill_embed(inputs, rolling_cache_len, kv_seq_len, cache_offset)
 
     def prefill(

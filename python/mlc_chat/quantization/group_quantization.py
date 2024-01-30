@@ -104,25 +104,25 @@ class GroupQuantize:  # pylint: disable=too-many-instance-attributes
                 ret_node: Any
                     The new node to replace current node.
                 """
-                # TODO quantize only llm part?
-                if isinstance(node, nn.Linear) and name != "lm_head":
-                    weight_name = f"{name}.weight"
-                    self.quant_map.param_map[weight_name] = [f"{name}.q_weight", f"{name}.q_scale", f"{name}.q_zero"]
-                    self.quant_map.map_func[weight_name] = partial(
-                        self.config.quantize_weight,
-                        output_transpose=self.config.linear_weight_layout == "KN",
-                    )
-                    return GroupQuantizeLinear.from_linear(node, self.config)
-                # if isinstance(node, nn.Embedding):
-                #     weight_name = f"{name}.weight"
-                #     self.quant_map.param_map[weight_name] = [f"{name}.q_weight", f"{name}.q_scale", f"{name}.q_zero"]
-                #     self.quant_map.map_func[weight_name] = self.config.quantize_weight
-                #     return GroupQuantizeEmbedding.from_embedding(node, self.config)
-                if isinstance(node, MixtralExperts):
-                    weight_name = f"{name}.weight"
-                    self.quant_map.param_map[weight_name] = [f"{name}.q_weight", f"{name}.q_scale", f"{name}.q_zero"]
-                    self.quant_map.map_func[weight_name] = self.config.quantize_weight
-                    return GroupQuantizeMixtralExperts.from_mixtral_experts(node, self.config)
+                if name.startswith('llm'):
+                    if isinstance(node, nn.Linear) and name != "lm_head":
+                        weight_name = f"{name}.weight"
+                        self.quant_map.param_map[weight_name] = [f"{name}.q_weight", f"{name}.q_scale", f"{name}.q_zero"]
+                        self.quant_map.map_func[weight_name] = partial(
+                            self.config.quantize_weight,
+                            output_transpose=self.config.linear_weight_layout == "KN",
+                        )
+                        return GroupQuantizeLinear.from_linear(node, self.config)
+                    # if isinstance(node, nn.Embedding):
+                    #     weight_name = f"{name}.weight"
+                    #     self.quant_map.param_map[weight_name] = [f"{name}.q_weight", f"{name}.q_scale", f"{name}.q_zero"]
+                    #     self.quant_map.map_func[weight_name] = self.config.quantize_weight
+                    #     return GroupQuantizeEmbedding.from_embedding(node, self.config)
+                    if isinstance(node, MixtralExperts):
+                        weight_name = f"{name}.weight"
+                        self.quant_map.param_map[weight_name] = [f"{name}.q_weight", f"{name}.q_scale", f"{name}.q_zero"]
+                        self.quant_map.map_func[weight_name] = self.config.quantize_weight
+                        return GroupQuantizeMixtralExperts.from_mixtral_experts(node, self.config)
                 return self.visit(name, node)
 
         model.to(dtype=self.model_dtype)

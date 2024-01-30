@@ -85,11 +85,11 @@ class ViTAttention(nn.Module):  # pylint: disable=too-many-instance-attributes
 
 class ViTDecoderLayer(nn.Module):
     def __init__(self, config: ViTConfig):
-        norm_eps = config.norm_eps
+        self.norm_eps = config.norm_eps
         self.attn = ViTAttention(config)
         self.mlp = ViTMLP(config)
-        self.norm1 = nn.LayerNorm(config.hidden_size, -1, norm_eps)
-        self.norm2 = nn.LayerNorm(config.hidden_size, -1, norm_eps)
+        self.norm1 = nn.LayerNorm(config.hidden_size, self.norm_eps)
+        self.norm2 = nn.LayerNorm(config.hidden_size, self.norm_eps)
 
         def _set_tp():
             def _set(layer, hint):
@@ -160,19 +160,14 @@ class ViT(nn.Module):
     def __init__(self, config: ViTConfig):
         assert config.hidden_size % config.num_attention_heads == 0
         self.patch_embed = PatchEmbed(config.channels_in, config.hidden_size, config.conv_size)
-        self.pos_embed = nn.Parameter((1, config.image_len, config.hidden_size), dtype='float32')
+        self.pos_embed = nn.Parameter((1, config.image_len, config.hidden_size))
         self.blocks = nn.ModuleList(
             [ViTDecoderLayer(config) for _ in range(config.num_hidden_layers)]
         )
-        self.norm = nn.LayerNorm(config.hidden_size, -1, config.norm_eps)
+        self.norm = nn.LayerNorm(config.hidden_size, config.norm_eps)
         self.config = config
         self.dtype = "float32"
 
-    def to(self, dtype: Optional[str] = None):
-        super().to(dtype=dtype)
-        if dtype is not None:
-            self.dtype = dtype
-    
     def forward(
         self,
         inputs: Tensor,
@@ -183,11 +178,7 @@ class ViT(nn.Module):
             # See `tests/legacy-python/test_sliding_window_mask.py` for its behavior
             return te.compute(
                 (batch_size, 1, seq_len, seq_len),
-                lambda b, _, i, j: tir.Select(
-                    i >= j,
-                    tir.max_value(self.dtype),
-                    tir.min_value(self.dtype),
-                ),
+                lambda b, _, i, j: tir.max_value(self.dtype),
                 name="vit_attention_mask",
             )
 

@@ -95,39 +95,37 @@ def huggingface_vis(model_config: MistralConfig, quantization: Quantization) -> 
         # inv_freq is not used in the model
         mapping.add_unused(f"{attn}.rotary_emb.inv_freq")
 
-        # pos_embed is hard to compute
-        mlc_name = f"vpm.pos_embed"
-        mlc_param = named_parameters[mlc_name]
-        mapping.add_mapping(
-            mlc_name,
-            [mlc_name,],
-            functools.partial(
-                lambda pos_embed, dtype: resample_abs_pos_embed(torch.from_numpy(pos_embed), (16, 16), num_prefix_tokens=0).numpy().astype(dtype),
-                dtype=mlc_param.dtype
-            )
+    # pos_embed is hard to compute
+    mlc_name = f"vpm.pos_embed"
+    mlc_param = named_parameters[mlc_name]
+    mapping.add_mapping(
+        mlc_name,
+        [mlc_name,],
+        functools.partial(
+            lambda pos_embed, dtype: resample_abs_pos_embed(torch.from_numpy(pos_embed), (16, 16), num_prefix_tokens=0).numpy().astype(dtype),
+            dtype=mlc_param.dtype
         )
+    )
 
-        mlc_name = f"resampler.pos_embed_k"
-        mlc_param = named_parameters[mlc_name]
-        mapping.add_mapping(
-            mlc_name,
-            ["resampler.pos_embed",],
-            functools.partial(
-                lambda pos_embed, dtype: get_abs_pos(torch.from_numpy(pos_embed), 256).numpy().astype(dtype),
-                dtype=mlc_param.dtype
-            )
+    mlc_name = f"resampler.pos_embed_k"
+    mlc_param = named_parameters[mlc_name]
+    mapping.add_mapping(
+        mlc_name,
+        ["resampler.pos_embed",],
+        functools.partial(
+            lambda pos_embed, dtype: get_abs_pos(torch.from_numpy(pos_embed), 256).numpy().astype(dtype),
+            dtype=mlc_param.dtype
         )
-
+    )
 
     for mlc_name, mlc_param in named_parameters.items():
         if mlc_name not in mapping.param_map:
-            print("here", mlc_name)
             mapping.add_mapping(
                 mlc_name,
                 [mlc_name],
                 functools.partial(
                     lambda x, dtype: x.astype(dtype),
-                    dtype=mlc_param.dtype,
+                    dtype=mlc_param.dtype
                 ),
             )
     return mapping

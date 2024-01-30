@@ -62,18 +62,39 @@ public class ChatModule {
         int C = 3, H = 224, W = 224;
         long[] shape = {1, C, H, W};
         NDArray img = NDArray.empty(shape, new TVMType("int32"));
-        int[] inp = new int[C*H*W];
-        for (int i = 0; i < C*H*W; ++i) {
+        int[] inp = new int[C * H * W];
+        for (int i = 0; i < C * H * W; ++i) {
             if (i % 3 == 0) inp[i] = 0;
-            if (i % 3 == 1) inp[i] = 128;
-            if (i % 3 == 2) inp[i] = 255;
+            if (i % 3 == 1) inp[i] = 0;
+            if (i % 3 == 2) inp[i] = 0;
         }
         img.copyFrom(inp);
         NDArrayBase res = imageFunc.pushArg(img).invoke().asNDArray();
 
-        NDArray arr = NDArray.empty(shape, new TVMType("float32"));
+        long[] res_shape = {1, 256, 1152};
+//        long[] res_shape = {1, 256, 4304};
+//        long[] res_shape = {1, 1152};
+        NDArray arr = NDArray.empty(res_shape, new TVMType("float32"));
         res.copyTo(arr);
-        String s ="";
+        float[] farr = arr.asFloatArray();
+        float[] sum = new float[256];
+        float[] repr = new float[6*6];
+        for (int i = 0; i < 256; ++i) {
+            sum[i] = 0;
+            for (int j = 0; j < 1152; ++j) {
+                sum[i] += farr[i * 1152 + j];
+                if (i < 3) {
+                    if (j < 3) repr[i*6+j] = farr[i * 1152 + j];
+                    if (1152 - j <= 3) repr[i*6+j-1149+3] = farr[i * 1152 + j];
+                }
+                if (256 - i <= 3) {
+                    if (j < 3) repr[3*6+(i-253)*6+j] = farr[i * 1152 + j];
+                    if (1152 - j <= 3) repr[3*6+(i-253)*6+j-1149+3] = farr[i * 1152 + j];
+                }
+            }
+        }
+
+        String s = "";
     }
 
     public String getMessage() {
