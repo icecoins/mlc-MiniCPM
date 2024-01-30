@@ -1,12 +1,16 @@
 package ai.mlc.mlcchat
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.text.TextUtils
 import android.util.Log
+import android.widget.Toast.LENGTH_SHORT
+import android.widget.Toast.makeText
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -62,6 +66,10 @@ import androidx.core.app.ActivityCompat.startActivityForResult
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.painterResource
+import androidx.core.app.ActivityCompat
+import androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale
+import androidx.core.content.ContentProviderCompat.requireContext
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
@@ -143,7 +151,7 @@ fun ChatView(
                     items = chatState.messages,
                     key = { message -> message.id },
                 ) { message ->
-                    MessageView(messageData = message)
+                    MessageView(messageData = message, activity)
                 }
                 item {
                     // place holder item for scrolling to the bottom
@@ -173,7 +181,7 @@ fun compressImage(image: Bitmap): Bitmap? {
     return BitmapFactory.decodeStream(isBm, null, null) //把ByteArrayInputStream数据生成图片
 }
 
-fun getImage(srcPath: String?): Bitmap? {
+fun getImage(srcPath: String?): Bitmap? { //3 * 224 * 224
     if (TextUtils.isEmpty(srcPath)) //如果图片路径为空 直接返回
         return null
     val newOpts = BitmapFactory.Options()
@@ -184,8 +192,8 @@ fun getImage(srcPath: String?): Bitmap? {
     val w = newOpts.outWidth
     val h = newOpts.outHeight
     //现在主流手机比较多是800*480分辨率，所以高和宽我们设置为
-    val hh = 800f //这里设置高度为800f
-    val ww = 480f //这里设置宽度为480f
+    val hh = 224f //这里设置高度为800f
+    val ww = 224f //这里设置宽度为480f
     //缩放比。由于是固定比例缩放，只用高或者宽其中一个数据进行计算即可
     var be = 1 //be=1表示不缩放
     if (w > h && w > ww) { //如果宽度大的话根据宽度固定大小缩放
@@ -202,7 +210,8 @@ fun getImage(srcPath: String?): Bitmap? {
 
 @ExperimentalMaterial3Api
 @Composable
-fun MessageView(messageData: MessageData) {
+fun MessageView(messageData: MessageData, activity: Activity) {
+    var local_activity : MainActivity = activity as MainActivity
     SelectionContainer {
         if (messageData.role == MessageRole.Bot) {
             Row(
@@ -210,19 +219,58 @@ fun MessageView(messageData: MessageData) {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (messageData.image_path != "") {
-                    var bitmap = getImage(messageData.image_path)
-                    if (bitmap != null) {
-                        Image(
-                            bitmap.asImageBitmap(),
-                            "",
-                            modifier = Modifier
-                                .wrapContentWidth()
-                                .background(
-                                    color = MaterialTheme.colorScheme.secondaryContainer,
-                                    shape = RoundedCornerShape(5.dp)
-                                )
-                                .padding(5.dp)
-                                .widthIn(max = 300.dp) )
+                    /*
+                    if(ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED){
+                        //ActivityCompat.requestPermissions(activity,
+                        //    arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
+                        //    1
+                        //)
+                        local_activity.requestPermissionLauncher.launch(
+                            Manifest.permission.READ_EXTERNAL_STORAGE)
+                    }
+                    */
+                    when {
+                        ContextCompat.checkSelfPermission(
+                            activity,
+                            Manifest.permission.READ_EXTERNAL_STORAGE
+                        ) == PackageManager.PERMISSION_GRANTED -> {
+                            // You can use the API that requires the permission.
+                            //startCamera()
+                            activity.has_permision = true
+
+                            makeText(activity, "Start Image", LENGTH_SHORT).show()
+                        }
+                        ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.READ_EXTERNAL_STORAGE) -> {
+                            // In an educational UI, explain to the user why your app requires this
+                            // permission for a specific feature to behave as expected. In this UI,
+                            // include a "cancel" or "no thanks" button that allows the user to
+                            // continue using your app without granting the permission.
+                            makeText(activity, "Image is necessary to add content.", LENGTH_SHORT).show()
+                        }
+                        else -> {
+                            // You can directly ask for the permission.
+                            // The registered ActivityResultCallback gets the result of this request.
+                            local_activity.requestPermissionLauncher.launch(
+                                Manifest.permission.READ_EXTERNAL_STORAGE)
+                        }
+                    }
+
+                    if(local_activity.has_permision){
+                        var bitmap = getImage(messageData.image_path)
+                        if (bitmap != null) {
+                            Image(
+                                bitmap.asImageBitmap(),
+                                "",
+                                modifier = Modifier
+                                    .wrapContentWidth()
+                                    .background(
+                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                        shape = RoundedCornerShape(5.dp)
+                                    )
+                                    .padding(5.dp)
+                                    .widthIn(max = 300.dp) )
+                            local_activity.has_image = true
+                        }
                     }
                 }
                 else{
@@ -247,19 +295,56 @@ fun MessageView(messageData: MessageData) {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (messageData.image_path != "") {
-                    var bitmap = getImage(messageData.image_path)
-                    if (bitmap != null) {
-                        Image(
-                            bitmap.asImageBitmap(),
-                            "",
-                            modifier = Modifier
-                                .wrapContentWidth()
-                            .background(
-                                color = MaterialTheme.colorScheme.secondaryContainer,
-                                shape = RoundedCornerShape(5.dp)
-                            )
-                            .padding(5.dp)
-                            .widthIn(max = 300.dp) )
+                    /*
+                    if(ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED){
+                        //ActivityCompat.requestPermissions(activity,
+                        //    arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
+                        //    1
+                        //)
+                        local_activity.requestPermissionLauncher.launch(
+                            Manifest.permission.READ_EXTERNAL_STORAGE)
+                    }*/
+                    when {
+                        ContextCompat.checkSelfPermission(
+                            activity,
+                            Manifest.permission.READ_EXTERNAL_STORAGE
+                        ) == PackageManager.PERMISSION_GRANTED -> {
+                            // You can use the API that requires the permission.
+                            //startCamera()
+                            activity.has_permision = true
+                            makeText(activity, "Start Image", LENGTH_SHORT).show()
+                        }
+
+                        ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.READ_EXTERNAL_STORAGE) -> {
+                            // In an educational UI, explain to the user why your app requires this
+                            // permission for a specific feature to behave as expected. In this UI,
+                            // include a "cancel" or "no thanks" button that allows the user to
+                            // continue using your app without granting the permission.
+                            makeText(activity, "Image is necessary to add content.", LENGTH_SHORT).show()
+                        }
+                        else -> {
+                            // You can directly ask for the permission.
+                            // The registered ActivityResultCallback gets the result of this request.
+                            local_activity.requestPermissionLauncher.launch(
+                                Manifest.permission.READ_EXTERNAL_STORAGE)
+                        }
+                    }
+                    if (local_activity.has_permision){
+                        var bitmap = getImage(messageData.image_path)
+                        if (bitmap != null) {
+                            Image(
+                                bitmap.asImageBitmap(),
+                                "",
+                                modifier = Modifier
+                                    .wrapContentWidth()
+                                    .background(
+                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                        shape = RoundedCornerShape(5.dp)
+                                    )
+                                    .padding(5.dp)
+                                    .widthIn(max = 300.dp) )
+                            local_activity.has_image = true
+                        }
                     }
                 }else{
                     Text(
@@ -287,7 +372,7 @@ fun MessageView(messageData: MessageData) {
 fun SendMessageView(chatState: AppViewModel.ChatState, activity: Activity) {
     val localFocusManager = LocalFocusManager.current
     val selectedImage = mutableStateOf<Int?>(null)
-    
+    var local_activity : MainActivity = activity as MainActivity
     Row(
         horizontalArrangement = Arrangement.spacedBy(5.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -310,15 +395,12 @@ fun SendMessageView(chatState: AppViewModel.ChatState, activity: Activity) {
                 val intent = Intent()
                 intent.setType("image/*")
                 intent.setAction(Intent.ACTION_GET_CONTENT)
-                var aa: MainActivity = activity as MainActivity
                 startActivityForResult(activity, Intent.createChooser(intent, "Select Picture"), 2, null)
                 Log.v("get_image", "after startActivityForResult" + activity.image_path)
-                //chatState.updateImage(activity.image_path)
             },
             modifier = Modifier
                 .aspectRatio(1f)
                 .weight(1f),
-            //enabled = (text != "" && chatState.chatable())
         ) {
             Icon(
                 imageVector = Icons.Filled.Add,
@@ -334,7 +416,7 @@ fun SendMessageView(chatState: AppViewModel.ChatState, activity: Activity) {
             modifier = Modifier
                 .aspectRatio(1f)
                 .weight(1f),
-            enabled = (text != "" && chatState.chatable())
+            enabled = (text != "" && chatState.chatable()  && local_activity.has_image)
         ) {
             Icon(
                 imageVector = Icons.Filled.Send,
