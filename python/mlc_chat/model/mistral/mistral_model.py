@@ -677,6 +677,8 @@ class VisMiniCPM(nn.Module):
         kv_seq_len: tir.Var,
         cache_offset: tir.Var,
     ):
+        inputs = (inputs.astype(self.dtype) / 255. - 0.5) / 0.5
+        return inputs.astype("float32")
         inputs = self.vpm(inputs)
         inputs = self.resampler(inputs)
         return self.llm.prefill_embed(inputs, rolling_cache_len, kv_seq_len, cache_offset)
@@ -706,9 +708,10 @@ class VisMiniCPM(nn.Module):
     def get_default_spec(self):
         """Needed for ``export_tvm()``."""
         batch_size = 1
+        image_size = 224
         mod_spec = {
             "image": {
-                "inputs": nn.spec.Tensor([batch_size, 3, 448, 448], self.dtype),
+                "inputs": nn.spec.Tensor([batch_size, 3, image_size, image_size], "int32"),
                 "rolling_cache_len": int,
                 "kv_seq_len": int,
                 "cache_offset": int,

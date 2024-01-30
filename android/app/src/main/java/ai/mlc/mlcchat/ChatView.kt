@@ -58,7 +58,7 @@ fun ChatView(
         TopAppBar(
             title = {
                 Text(
-                    text = "MLCChat: " + chatState.modelName.value.split("-")[0],
+                    text = "Demo: " + chatState.modelName.value, //.split("-")[0],
                     color = MaterialTheme.colorScheme.onPrimary
                 )
             },
@@ -180,6 +180,8 @@ fun MessageView(messageData: MessageData) {
     }
 }
 
+var ith = 0
+
 @ExperimentalMaterial3Api
 @Composable
 fun SendMessageView(chatState: AppViewModel.ChatState) {
@@ -203,7 +205,11 @@ fun SendMessageView(chatState: AppViewModel.ChatState) {
         IconButton(
             onClick = {
                 localFocusManager.clearFocus()
-                chatState.requestGenerate(text)
+                if (ith == 0)
+                    chatState.requestImage()
+                else
+                    chatState.requestGenerate(text)
+                ith += 1
                 text = ""
             },
             modifier = Modifier

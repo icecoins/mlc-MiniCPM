@@ -1,8 +1,13 @@
 package ai.mlc.mlcllm;
 
+import android.nfc.tech.Ndef;
+
 import org.apache.tvm.Device;
 import org.apache.tvm.Function;
 import org.apache.tvm.Module;
+import org.apache.tvm.NDArrayBase;
+import org.apache.tvm.NDArray;
+import org.apache.tvm.TVMType;
 
 public class ChatModule {
     private Function reloadFunc;
@@ -54,7 +59,21 @@ public class ChatModule {
     }
 
     public void image() {
-        imageFunc.invoke();
+        int C = 3, H = 224, W = 224;
+        long[] shape = {1, C, H, W};
+        NDArray img = NDArray.empty(shape, new TVMType("int32"));
+        int[] inp = new int[C*H*W];
+        for (int i = 0; i < C*H*W; ++i) {
+            if (i % 3 == 0) inp[i] = 0;
+            if (i % 3 == 1) inp[i] = 128;
+            if (i % 3 == 2) inp[i] = 255;
+        }
+        img.copyFrom(inp);
+        NDArrayBase res = imageFunc.pushArg(img).invoke().asNDArray();
+
+        NDArray arr = NDArray.empty(shape, new TVMType("float32"));
+        res.copyTo(arr);
+        String s ="";
     }
 
     public String getMessage() {

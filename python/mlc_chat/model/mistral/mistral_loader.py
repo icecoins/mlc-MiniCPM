@@ -102,7 +102,7 @@ def huggingface_vis(model_config: MistralConfig, quantization: Quantization) -> 
             mlc_name,
             [mlc_name,],
             functools.partial(
-                lambda pos_embed, dtype: resample_abs_pos_embed(torch.from_numpy(pos_embed), (32, 32), num_prefix_tokens=0).numpy().astype(dtype),
+                lambda pos_embed, dtype: resample_abs_pos_embed(torch.from_numpy(pos_embed), (16, 16), num_prefix_tokens=0).numpy().astype(dtype),
                 dtype=mlc_param.dtype
             )
         )
@@ -113,7 +113,7 @@ def huggingface_vis(model_config: MistralConfig, quantization: Quantization) -> 
             mlc_name,
             ["resampler.pos_embed",],
             functools.partial(
-                lambda pos_embed, dtype: get_abs_pos(torch.from_numpy(pos_embed), 1024).numpy().astype(dtype),
+                lambda pos_embed, dtype: get_abs_pos(torch.from_numpy(pos_embed), 256).numpy().astype(dtype),
                 dtype=mlc_param.dtype
             )
         )

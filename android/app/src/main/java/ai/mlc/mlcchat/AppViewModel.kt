@@ -474,6 +474,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         private var modelLib = ""
         private var modelPath = ""
         private val executorService = Executors.newSingleThreadExecutor()
+        private var has_user_prompt = false
 
         private fun mainResetChat() {
             executorService.submit {
@@ -621,6 +622,23 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
+        fun requestImage() {
+            require(chatable())
+            var newText = ""
+            switchToGenerating()
+            executorService.submit {
+//                appendMessage(MessageRole.User, prompt) // TODO
+//                appendMessage(MessageRole.Bot, "")
+                if (!callBackend { backend.image() }) return@submit
+                has_user_prompt = true
+                viewModelScope.launch {
+                    report.value = "图片处理好了，请提问"
+                    if (modelChatState.value == ModelChatState.Generating) switchToReady()
+                }
+            }
+
+        }
+
         fun requestGenerate(prompt: String) {
             require(chatable())
             var newText = ""
@@ -628,7 +646,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             executorService.submit {
                 appendMessage(MessageRole.User, prompt)
                 appendMessage(MessageRole.Bot, "")
-                if (!callBackend { backend.prefill("<用户>" + prompt + "<AI>") }) return@submit
+                if (has_user_prompt) {
+                    if (!callBackend { backend.prefill("</image>\n" + prompt + "<AI>") }) return@submit
+                } else {
+                    if (!callBackend { backend.prefill("<用户>" + prompt + "<AI>") }) return@submit
+                }
                 while (!backend.stopped()) {
                     if (!callBackend {
                             backend.decode()
