@@ -699,7 +699,6 @@ class VisMiniCPM(nn.Module):
         inputs = (inputs.astype(self.dtype) / 255. - 0.5) / 0.5
         inputs = self.vpm(inputs)
         inputs = self.resampler(inputs)
-        return inputs.astype("float32")
         return self.llm.prefill_embed(inputs, rolling_cache_len, kv_seq_len, cache_offset)
 
     def prefill(

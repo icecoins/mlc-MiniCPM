@@ -64,36 +64,11 @@ public class ChatModule {
         NDArray img = NDArray.empty(shape, new TVMType("int32"));
         int[] inp = new int[C * H * W];
         for (int i = 0; i < C * H * W; ++i) {
-            if (i % 3 == 0) inp[i] = 0;
-            if (i % 3 == 1) inp[i] = 0;
-            if (i % 3 == 2) inp[i] = 0;
+            if (i < H*W) inp[i] = 255;
+            else inp[i] = 0;
         }
         img.copyFrom(inp);
-        NDArrayBase res = imageFunc.pushArg(img).invoke().asNDArray();
-
-        H = 64; W = 2304;
-        long[] res_shape = {1, H, W};
-        NDArray arr = NDArray.empty(res_shape, new TVMType("float32"));
-        res.copyTo(arr);
-        float[] farr = arr.asFloatArray();
-        float[] sum = new float[H];
-        float[] repr = new float[6*6];
-        for (int i = 0; i < H; ++i) {
-            sum[i] = 0;
-            for (int j = 0; j < W; ++j) {
-                sum[i] += farr[i * W + j];
-                if (i < 3) {
-                    if (j < 3) repr[i*6+j] = farr[i * W + j];
-                    if (W - j <= 3) repr[i*6+j-(W-6)] = farr[i * W + j];
-                }
-                if (H - i <= 3) {
-                    if (j < 3) repr[(i-(H-6))*6+j] = farr[i * W + j];
-                    if (W - j <= 3) repr[(i-(H-6))*6+j-(W-6)] = farr[i * W + j];
-                }
-            }
-        }
-
-        String s = "";
+        imageFunc.pushArg(img).invoke();
     }
 
     public String getMessage() {

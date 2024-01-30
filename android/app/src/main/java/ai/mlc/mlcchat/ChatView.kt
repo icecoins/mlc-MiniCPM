@@ -1,5 +1,6 @@
 package ai.mlc.mlcchat
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -205,8 +206,9 @@ fun SendMessageView(chatState: AppViewModel.ChatState) {
         IconButton(
             onClick = {
                 localFocusManager.clearFocus()
-                if (ith == 0)
+                if (ith == 0) {
                     chatState.requestImage()
+                }
                 else
                     chatState.requestGenerate(text)
                 ith += 1

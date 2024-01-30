@@ -626,13 +626,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             require(chatable())
             var newText = ""
             switchToGenerating()
+            Toast.makeText(application, "Image Processing...", Toast.LENGTH_SHORT);
             executorService.submit {
 //                appendMessage(MessageRole.User, prompt) // TODO
 //                appendMessage(MessageRole.Bot, "")
                 if (!callBackend { backend.image() }) return@submit
                 has_user_prompt = true
                 viewModelScope.launch {
-                    report.value = "图片处理好了，请提问"
+                    report.value = "Image process done, ask any question"
                     if (modelChatState.value == ModelChatState.Generating) switchToReady()
                 }
             }

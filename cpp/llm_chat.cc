@@ -844,12 +844,10 @@ class LLMChat {
    * \param decode_next_token Whether to decode next token.
    * \param place_in_prompt The place of the input message in the prompt.
    */
-  NDArray ImageStep(NDArray img) {
-    // PrefillStep("<用户><image>", true, false);
-    // ft_.image_func_(ft_.CopyToWorker0(img), ShapeTuple{5}, ShapeTuple{69}, ShapeTuple{sliding_window_cache_offset_}, kv_cache_, params_);
-    // total_seq_len_ += 64;
-    ObjectRef ret = ft_.image_func_(ft_.CopyToWorker0(img), ShapeTuple{0}, ShapeTuple{64}, ShapeTuple{sliding_window_cache_offset_}, kv_cache_, params_);
-    return Downcast<Array<NDArray>>(ret)[0];
+  void ImageStep(NDArray img) {
+    PrefillStep("<用户><image>", true, false);
+    ft_.image_func_(ft_.CopyToWorker0(img), ShapeTuple{5}, ShapeTuple{69}, ShapeTuple{sliding_window_cache_offset_}, kv_cache_, params_);
+    total_seq_len_ += 64;
   }
 
   /*!
@@ -1581,7 +1579,7 @@ class LLMChatModule : public ModuleNode {
           NDArray img = args[0];
           NDArray d_img = NDArray::Empty({1, 3, 224, 224}, DataType::Int(32), device_);
           d_img.CopyFrom(img);
-          *rv = GetChat()->ImageStep(d_img);
+          GetChat()->ImageStep(d_img);
         }
       });
     } else if (name == "prefill") {
