@@ -117,6 +117,8 @@ fun AlertDialog(
     )
 }
 
+var started = false
+
 @Composable
 fun ModelView(
     navController: NavController,
@@ -158,6 +160,10 @@ fun ModelView(
                         imageVector = Icons.Outlined.Download,
                         contentDescription = "start downloading",
                     )
+                    if (!started) {
+                        started = true
+                        navController.navigate("chat")
+                    }
                 }
 
             } else if (modelState.modelInitState.value == ModelInitState.Downloading) {

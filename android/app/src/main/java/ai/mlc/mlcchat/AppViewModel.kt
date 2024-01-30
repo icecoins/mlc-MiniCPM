@@ -621,6 +621,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
+        fun updateImage(image_uri: String) {
+            require(chatable())
+            updateMessage(MessageRole.Bot, image_uri)
+        }
         fun requestGenerate(prompt: String) {
             require(chatable())
             var newText = ""
@@ -693,7 +697,7 @@ enum class MessageRole {
 
 data class DownloadTask(val url: String, val file: File)
 
-data class MessageData(val role: MessageRole, val text: String, val id: UUID = UUID.randomUUID())
+data class MessageData(val role: MessageRole, val text: String, val id: UUID = UUID.randomUUID(), var image_path: String = "")
 
 data class AppConfig(
     @SerializedName("model_libs") val modelLibs: List<String>,
