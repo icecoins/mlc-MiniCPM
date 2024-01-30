@@ -118,6 +118,20 @@ def huggingface_vis(model_config: MistralConfig, quantization: Quantization) -> 
         )
     )
 
+    for i, n in enumerate(['q_proj', 'k_proj', 'v_proj']):
+        for w in ['weight', 'bias']:
+            mlc_name = f"resampler.attn.{n}.{w}"
+            mlc_param = named_parameters[mlc_name]
+            mapping.add_mapping(
+                mlc_name,
+                [f"resampler.attn.in_proj_{w}",],
+                functools.partial(
+                    lambda x, ith, dtype: x[ith*2304:(ith+1)*2304,...].astype(dtype),
+                    ith=i,
+                    dtype=mlc_param.dtype,
+                )
+            )
+
     for mlc_name, mlc_param in named_parameters.items():
         if mlc_name not in mapping.param_map:
             mapping.add_mapping(

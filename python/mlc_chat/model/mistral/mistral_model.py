@@ -593,11 +593,38 @@ class MistralForCasualLM(nn.Module):
         return nn.spec.ModuleSpec.from_raw(mod_spec, self)
 
 
+class ResamplerAttention(nn.Module):  # pylint: disable=too-many-instance-attributes
+    def __init__(self, config):
+        self.hidden_size = config.output_dim
+        self.head_dim = 128
+        self.num_heads = self.hidden_size // self.head_dim // config.tensor_parallel_shards
+        self.q_proj = nn.Linear(self.hidden_size, self.num_heads * self.head_dim, bias=True)
+        self.k_proj = nn.Linear(self.hidden_size, self.num_heads * self.head_dim, bias=True)
+        self.v_proj = nn.Linear(self.hidden_size, self.num_heads * self.head_dim, bias=True)
+        self.out_proj = nn.Linear(self.num_heads * self.head_dim, self.hidden_size, bias=True)
+
+    def forward(  # pylint: disable=too-many-arguments, too-many-locals
+        self,
+        q: Tensor,
+        k: Tensor,
+        v: Tensor,
+        attention_mask: Tensor,
+    ):
+        """Forward pass of MistralAttention, performing QKV."""
+        d, h = self.head_dim, self.num_heads
+        b, sq, _ = q.shape
+        _, sk, _ = k.shape
+        assert b == 1, "Only support batch size 1 at this moment."
+        q = self.q_proj(q).reshape([b, sq, h, d])
+        k = self.k_proj(k).reshape([b, sk, h, d])
+        v = self.v_proj(v).reshape([b, sk, h, d])
+        output = op_ext.attention(q, k, v, attention_mask)
+        return self.out_proj(output)
+
 class Resampler(nn.Module):
     def __init__(self, config: ViTConfig):
         self.num_queries = config.num_query
         self.embed_dim = config.output_dim
-        self.num_heads = config.output_dim // 128
         self.kv_dim = config.hidden_size
         self.image_len = config.image_len
 
@@ -607,6 +634,7 @@ class Resampler(nn.Module):
         self.kv_proj = nn.Linear(self.kv_dim, self.embed_dim, bias=False)
         self.ln_q = nn.LayerNorm(self.embed_dim, config.norm_eps)
         self.ln_kv = nn.LayerNorm(self.embed_dim, config.norm_eps)
+        self.attn = ResamplerAttention(config)
         self.ln_post = nn.LayerNorm(self.embed_dim, config.norm_eps)
         self.proj = nn.Parameter((self.embed_dim, self.embed_dim))
         self.dtype = 'float32'
@@ -614,7 +642,7 @@ class Resampler(nn.Module):
 
     def forward(
         self, 
-        x : Tensor, # (1, 1024, 1152)
+        x : Tensor,
     ):
         x = self.kv_proj(x)
         x = self.ln_kv(x)
@@ -641,10 +669,10 @@ class Resampler(nn.Module):
             ],
         )
 
-        x = op_ext.attention(
-            (q + self.pos_embed).reshape([1, self.pos_embed.shape[0], 1, self.pos_embed.shape[1]]),
-            x.reshape([1, x.shape[1], 1, x.shape[2]]) + self.pos_embed_k.reshape([1, self.pos_embed_k.shape[0], 1, self.pos_embed_k.shape[1]]),
-            x.reshape([1, x.shape[1], 1, x.shape[2]]),
+        x = self.attn(
+            (q + self.pos_embed).reshape([1, q.shape[0], q.shape[1]]),
+            x + self.pos_embed_k.reshape([1, self.pos_embed_k.shape[0], self.pos_embed_k.shape[1]]),
+            x,
             attention_mask
         )
 
