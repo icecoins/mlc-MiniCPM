@@ -96,11 +96,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun extract_from_asset(srcPath: String, dstPath: String) {
+        val srcPath = srcPath.lowercase()
         val assetManager = application.assets
         File(dstPath).mkdirs()
         val files = assetManager.list(srcPath)
         val ts = mutableListOf<Thread>()
         for (file in files!!) {
+            if (File(dstPath + '/' + file).exists()) continue
             ts.add(thread(start=true){
                 //  https://stackoverflow.com/questions/43894100/best-practice-for-converting-java-code-used-for-copying-assets-files-to-cache-fo
                 val inputStream = assetManager.open(srcPath + '/' + file).use { input ->
@@ -475,8 +477,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         private var modelPath = ""
         private val executorService = Executors.newSingleThreadExecutor()
         private var has_user_prompt = false
+        private var is_first_ask = true
 
         private fun mainResetChat() {
+            is_first_ask = true
+            has_user_prompt = false
             executorService.submit {
                 callBackend { backend.resetChat() }
                 viewModelScope.launch {
@@ -622,15 +627,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        fun requestImage() {
+        fun requestImage(img: IntArray) {
             require(chatable())
             var newText = ""
             switchToGenerating()
-            Toast.makeText(application, "Image Processing...", Toast.LENGTH_SHORT);
+            Toast.makeText(application, "Image Processing...", Toast.LENGTH_SHORT).show()
             executorService.submit {
-//                appendMessage(MessageRole.User, prompt) // TODO
-//                appendMessage(MessageRole.Bot, "")
-                if (!callBackend { backend.image() }) return@submit
+                if (!callBackend { backend.image(img) }) return@submit
                 has_user_prompt = true
                 viewModelScope.launch {
                     report.value = "Image process done, ask any question"
@@ -648,9 +651,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 appendMessage(MessageRole.User, prompt)
                 appendMessage(MessageRole.Bot, "")
                 if (has_user_prompt) {
-                    if (!callBackend { backend.prefill("</image>\n" + prompt + "<AI>") }) return@submit
+                    if (!callBackend { backend.prefill("</image>" + prompt + "<AI>") }) return@submit
+                    has_user_prompt = false
                 } else {
-                    if (!callBackend { backend.prefill("<用户>" + prompt + "<AI>") }) return@submit
+                    if (is_first_ask && !modelName.value.endsWith("-V")) {
+                        if (!callBackend { backend.prefill("<系统命令>你是MiniCPM，由面壁智能开发。<用户>" + prompt + "<AI>") }) return@submit
+                        is_first_ask = false;
+                    }
+                    else {
+                        if (!callBackend { backend.prefill("<用户>" + prompt + "<AI>") }) return@submit
+                    }
                 }
                 while (!backend.stopped()) {
                     if (!callBackend {
@@ -716,7 +726,7 @@ enum class MessageRole {
 
 data class DownloadTask(val url: String, val file: File)
 
-data class MessageData(val role: MessageRole, val text: String, val id: UUID = UUID.randomUUID())
+data class MessageData(val role: MessageRole, val text: String, val id: UUID = UUID.randomUUID(), var image_path: String = "")
 
 data class AppConfig(
     @SerializedName("model_libs") val modelLibs: List<String>,

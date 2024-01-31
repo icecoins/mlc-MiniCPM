@@ -104,7 +104,7 @@ class GroupQuantize:  # pylint: disable=too-many-instance-attributes
                 ret_node: Any
                     The new node to replace current node.
                 """
-                if name.startswith('llm'):
+                if name.startswith('llm') or name.startswith("model"):
                     if isinstance(node, nn.Linear) and name != "lm_head":
                         weight_name = f"{name}.weight"
                         self.quant_map.param_map[weight_name] = [f"{name}.q_weight", f"{name}.q_scale", f"{name}.q_zero"]

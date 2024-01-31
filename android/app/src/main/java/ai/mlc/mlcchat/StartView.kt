@@ -57,7 +57,7 @@ fun StartView(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(text = "MLCChat", color = MaterialTheme.colorScheme.onPrimary) },
+                title = { Text(text = "MiniCPM Demo", color = MaterialTheme.colorScheme.onPrimary) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary)
             )
         },

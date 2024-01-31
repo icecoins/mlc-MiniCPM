@@ -74,8 +74,8 @@ MODELS: Dict[str, Model] = {
             "awq": llama_quantization.awq_quant,
         },
     ),
-    "vis_minicpm": Model(
-        name="vis_mistral",
+    "minicpm_v": Model(
+        name="minicpm_v",
         model=mistral_model.VisMiniCPM,
         config=mistral_model.MistralConfig,
         source={
@@ -88,7 +88,7 @@ MODELS: Dict[str, Model] = {
         },
     ),
     "minicpm": Model(
-        name="mistral",
+        name="minicpm",
         model=mistral_model.MistralForCasualLM,
         config=mistral_model.MistralConfig,
         source={

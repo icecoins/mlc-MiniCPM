@@ -1,20 +1,20 @@
 {
   "model_libs": [
-    "mistral_q4f16_1",
-    "vis_mistral_q4f16_1"
+    "minicpm_q4f16_1",
+    "minicpm_v_q4f16_1"
   ],
   "model_list": [
     {
-      "model_url": "https://openbmb.oss-cn-hongkong.aliyuncs.com/model_center/mobile/minicpm-01/",
-      "local_id": "minicpm",
-      "model_lib_path": "libs/minicpm-android.tar",
-      "model_lib": "mistral_q4f16_1"
+      "model_url": "https://openbmb.oss-cn-hongkong.aliyuncs.com/model_center/mobile/android/MiniCPM/",
+      "local_id": "MiniCPM",
+      "model_lib_path": "libs/MiniCPM-android.tar",
+      "model_lib": "minicpm_q4f16_1"
     },
     {
-      "model_url": "https://openbmb.oss-cn-hongkong.aliyuncs.com/model_center/mobile/vis-minicpm-01/",
-      "local_id": "vis-minicpm",
-      "model_lib_path": "libs/vis-minicpm-android.tar",
-      "model_lib": "vis_mistral_q4f16_1"
+      "model_url": "https://openbmb.oss-cn-hongkong.aliyuncs.com/model_center/mobile/android/MiniCPM-V/",
+      "local_id": "MiniCPM-V",
+      "model_lib_path": "libs/MiniCPM-V-android.tar",
+      "model_lib": "minicpm_v_q4f16_1"
     }
   ]
 }

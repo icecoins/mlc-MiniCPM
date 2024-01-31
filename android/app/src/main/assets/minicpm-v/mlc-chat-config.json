@@ -1,5 +1,5 @@
 {
-  "model_type": "vis_mistral",
+  "model_type": "minicpm_v",
   "quantization": "q4f16_1",
   "model_config": {
     "hidden_size": 2304,

@@ -848,6 +848,7 @@ class LLMChat {
     PrefillStep("<用户><image>", true, false);
     ft_.image_func_(ft_.CopyToWorker0(img), ShapeTuple{5}, ShapeTuple{69}, ShapeTuple{sliding_window_cache_offset_}, kv_cache_, params_);
     total_seq_len_ += 64;
+    sliding_window_cache_offset_ += 64;
   }
 
   /*!

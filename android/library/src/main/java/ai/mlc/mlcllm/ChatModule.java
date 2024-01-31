@@ -58,15 +58,10 @@ public class ChatModule {
         prefillFunc.pushArg(input).invoke();
     }
 
-    public void image() {
+    public void image(int[] inp) {
         int C = 3, H = 224, W = 224;
         long[] shape = {1, C, H, W};
         NDArray img = NDArray.empty(shape, new TVMType("int32"));
-        int[] inp = new int[C * H * W];
-        for (int i = 0; i < C * H * W; ++i) {
-            if (i < H*W) inp[i] = 255;
-            else inp[i] = 0;
-        }
         img.copyFrom(inp);
         imageFunc.pushArg(img).invoke();
     }
