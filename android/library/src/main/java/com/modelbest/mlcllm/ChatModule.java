@@ -1,11 +1,8 @@
-package ai.mlc.mlcllm;
-
-import android.nfc.tech.Ndef;
+package com.modelbest.mlcllm;
 
 import org.apache.tvm.Device;
 import org.apache.tvm.Function;
 import org.apache.tvm.Module;
-import org.apache.tvm.NDArrayBase;
 import org.apache.tvm.NDArray;
 import org.apache.tvm.TVMType;
 

@@ -1,6 +1,6 @@
-package ai.mlc.mlcchat
+package com.modelbest.minicpm
 
-import ai.mlc.mlcllm.ChatModule
+import com.modelbest.mlcllm.ChatModule
 import android.annotation.SuppressLint
 import android.app.Application
 import android.app.DownloadManager
@@ -12,22 +12,15 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
 import android.os.Environment
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
-import com.google.gson.JsonObject
-import com.google.gson.JsonParser
 import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.launch
-import java.io.BufferedReader
 import java.io.File
-import java.io.FileOutputStream
-import java.io.FileReader
-import java.nio.channels.Channels
 import java.util.Timer
 import java.util.TimerTask
 import java.util.UUID
@@ -305,7 +298,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     remainingTasks.add(
                         DownloadTask(
-                            "${modelUrl}${ModelUrlSuffix}${paramsRecord.dataPath}",
+                            "${modelUrl}$ModelUrlSuffix${paramsRecord.dataPath}",
                             file
                         )
                     )

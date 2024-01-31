@@ -1,4 +1,4 @@
-package ai.mlc.mlcchat.ui.theme
+package com.modelbest.minicpm.ui.theme
 
 import android.app.Activity
 import android.os.Build

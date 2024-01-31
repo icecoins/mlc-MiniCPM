@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace 'ai.mlc.mlcchat'
+    namespace 'com.modelbest.minicpm'
     compileSdk 34
 
     defaultConfig {
-        applicationId "ai.mlc.mlcchat"
+        applicationId "com.modelbest.minicpm"
         minSdk 26
         targetSdk 33
         versionCode 1

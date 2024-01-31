@@ -1,7 +1,6 @@
-package ai.mlc.mlcchat
+package com.modelbest.minicpm
 
-import ai.mlc.mlcchat.ui.theme.MLCChatTheme
-import android.app.AppOpsManager
+import com.modelbest.minicpm.ui.theme.MLCChatTheme
 import android.content.Context
 import android.content.Intent
 import android.database.Cursor

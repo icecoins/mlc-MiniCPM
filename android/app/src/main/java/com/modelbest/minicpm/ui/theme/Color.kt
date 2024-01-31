@@ -1,4 +1,4 @@
-package ai.mlc.mlcchat.ui.theme
+package com.modelbest.minicpm.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
