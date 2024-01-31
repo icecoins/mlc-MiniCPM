@@ -629,7 +629,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 if (!callBackend { backend.image(img) }) return@submit
                 has_user_prompt = true
                 viewModelScope.launch {
-                    report.value = "Image process done, ask any question"
+                    report.value = "Image process is done, ask any question"
                     if (modelChatState.value == ModelChatState.Generating) switchToReady()
                 }
             }

@@ -6,6 +6,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.provider.MediaStore
 import android.text.TextUtils
 import android.util.Log
 import androidx.compose.foundation.Image
@@ -30,7 +31,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Divider
@@ -321,6 +324,22 @@ fun SendMessageView(chatState: AppViewModel.ChatState, activity: Activity) {
         if (chatState.modelName.value.endsWith("-V")) {
             IconButton(
                 onClick = {
+                    val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+                    startActivityForResult(activity, intent, 1, null)
+                    Log.v("get_image", "after startActivityForResult" + activity.image_path)
+                },
+                modifier = Modifier
+                    .aspectRatio(1f)
+                    .weight(1f),
+                enabled = (chatState.chatable() && !local_activity.has_image)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.AddAPhoto,
+                    contentDescription = "use camera",
+                )
+            }
+            IconButton(
+                onClick = {
                     val intent = Intent()
                     intent.setType("image/*")
                     intent.setAction(Intent.ACTION_GET_CONTENT)
@@ -333,7 +352,7 @@ fun SendMessageView(chatState: AppViewModel.ChatState, activity: Activity) {
                 enabled = (chatState.chatable() && !local_activity.has_image)
             ) {
                 Icon(
-                    imageVector = Icons.Filled.Add,
+                    imageVector = Icons.Filled.Photo,
                     contentDescription = "select image",
                 )
             }

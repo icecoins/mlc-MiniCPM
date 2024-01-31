@@ -18,7 +18,9 @@ import androidx.compose.ui.Modifier
 import java.util.UUID
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.ContentUris
+import android.content.ContentValues
 import android.content.CursorLoader
 import android.content.pm.PackageManager
 import android.os.Build
@@ -28,6 +30,7 @@ import android.text.TextUtils
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import java.io.ByteArrayOutputStream
 
 // Ref: https://gist.github.com/MeNiks/947b471b762f3b26178ef165a7f5558a
 object RealPathUtil {
@@ -196,6 +199,39 @@ object RealPathUtil {
     }
 }
 
+fun saveImageToGallery(context: Activity, bitmap: Bitmap): String {
+    val contentResolver = context?.contentResolver ?: return "" // 获取内容提供者对象
+
+    var imagePath = ""
+
+    try {
+        val values = ContentValues()
+
+        // 设置图片信息
+        values.put(MediaStore.Images.Media.DISPLAY_NAME, "image")
+        values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+
+        // 创建文件并返回其URI
+        val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+
+        if (uri != null && !uri.path.isNullOrEmpty()) {
+            // 将Bitmap转换为字节数组输出流
+            val outputStream = ByteArrayOutputStream()
+
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
+
+            // 写入字节数组到指定路径
+            contentResolver.openOutputStream(uri)?.write(outputStream.toByteArray())
+
+            imagePath = RealPathUtil.getRealPath(context.applicationContext, uri).toString()
+            //imagePath = uri.toString()
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+
+    return imagePath
+}
 
 class MainActivity : ComponentActivity() {
     var image_path = ""
@@ -236,6 +272,16 @@ class MainActivity : ComponentActivity() {
             requestPermissionLauncher.launch(
                 android.Manifest.permission.READ_MEDIA_IMAGES)
         }
+        if(ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED){
+            ActivityCompat.requestPermissions(this,
+                arrayOf(
+                    android.Manifest.permission.CAMERA,
+                ),
+                0
+            )
+            requestPermissionLauncher.launch(
+                android.Manifest.permission.CAMERA)
+        }
         setContent {
             Surface(
                 modifier = Modifier
@@ -274,8 +320,10 @@ class MainActivity : ComponentActivity() {
                 val extras = data.extras
                 if (extras != null) {
                     val bm = extras.getParcelable<Bitmap>("data")
-                    //val uri: Uri = saveBitmap(bm)
-                    //startImageZoom(uri)
+                    if (bm != null) {
+                        image_path = saveImageToGallery(this, bm)
+                        chatState.messages.add(MessageData(MessageRole.User, "", UUID.randomUUID(), image_path))
+                    }
                 }
             }
         } else if (requestCode == 2) {
