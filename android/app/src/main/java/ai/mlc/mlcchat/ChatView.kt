@@ -180,6 +180,9 @@ fun compressImage(image: Bitmap): Bitmap? {
         ByteArrayInputStream(baos.toByteArray()) //把压缩后的数据baos存放到ByteArrayInputStream中
     return BitmapFactory.decodeStream(isBm, null, null) //把ByteArrayInputStream数据生成图片
 }
+fun scaleSize(image: Bitmap, newW : Int, newH: Int): Bitmap {
+    return Bitmap.createScaledBitmap(image, newW, newH, true)
+}
 
 fun getImage(srcPath: String?): Bitmap? { //3 * 224 * 224
     if (TextUtils.isEmpty(srcPath)) //如果图片路径为空 直接返回
@@ -192,8 +195,8 @@ fun getImage(srcPath: String?): Bitmap? { //3 * 224 * 224
     val w = newOpts.outWidth
     val h = newOpts.outHeight
     //现在主流手机比较多是800*480分辨率，所以高和宽我们设置为
-    val hh = 224f //这里设置高度为800f
-    val ww = 224f //这里设置宽度为480f
+    val hh = 224f //这里设置高度为224f
+    val ww = 224f //这里设置宽度为224f
     //缩放比。由于是固定比例缩放，只用高或者宽其中一个数据进行计算即可
     var be = 1 //be=1表示不缩放
     if (w > h && w > ww) { //如果宽度大的话根据宽度固定大小缩放
@@ -205,8 +208,16 @@ fun getImage(srcPath: String?): Bitmap? { //3 * 224 * 224
     newOpts.inSampleSize = be //设置缩放比例
     //重新读入图片，注意此时已经把options.inJustDecodeBounds 设回false了
     bitmap = BitmapFactory.decodeFile(srcPath, newOpts)
-    return compressImage(bitmap) //压缩好比例大小后再进行质量压缩
+    //return compressImage(bitmap) //压缩好比例大小后再进行质量压缩
+    return scaleSize(bitmap, 224, 224)
 }
+
+fun bitmapToBytes(bitmap: Bitmap): ByteArray {
+    val stream = ByteArrayOutputStream()
+    bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream) // 这里的格式可根据需求选择其他格式
+    return stream.toByteArray()
+}
+
 
 @ExperimentalMaterial3Api
 @Composable
@@ -221,20 +232,21 @@ fun MessageView(messageData: MessageData, activity: Activity) {
                 if (messageData.image_path != "") {
                     var bitmap = getImage(messageData.image_path)
                     if (bitmap != null) {
-                            Image(
-                                bitmap.asImageBitmap(),
-                                "",
-                                modifier = Modifier
-                                    .wrapContentWidth()
-                                    .background(
-                                        color = MaterialTheme.colorScheme.secondaryContainer,
-                                        shape = RoundedCornerShape(5.dp)
-                                    )
-                                    .padding(5.dp)
-                                    .widthIn(max = 300.dp) )
-                            local_activity.has_image = true
-                        }
-
+                        local_activity.image_data = bitmapToBytes(bitmap)
+                        Log.v("get_image", local_activity.image_data.size.toString())
+                        Image(
+                            bitmap.asImageBitmap(),
+                            "",
+                            modifier = Modifier
+                                .wrapContentWidth()
+                                .background(
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                    shape = RoundedCornerShape(5.dp)
+                                )
+                                .padding(5.dp)
+                                .widthIn(max = 300.dp) )
+                        local_activity.has_image = true
+                    }
                 }
                 else{
                     Text(
@@ -260,6 +272,9 @@ fun MessageView(messageData: MessageData, activity: Activity) {
                 if (messageData.image_path != "") {
                         var bitmap = getImage(messageData.image_path)
                         if (bitmap != null) {
+                            local_activity.image_data = bitmapToBytes(bitmap)
+                            Log.v("get_image", local_activity.image_data.size.toString())
+
                             Image(
                                 bitmap.asImageBitmap(),
                                 "",

@@ -621,10 +621,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        fun updateImage(image_uri: String) {
-            require(chatable())
-            updateMessage(MessageRole.Bot, image_uri)
-        }
         fun requestGenerate(prompt: String) {
             require(chatable())
             var newText = ""

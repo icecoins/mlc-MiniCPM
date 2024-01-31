@@ -200,7 +200,7 @@ object RealPathUtil {
 class MainActivity : ComponentActivity() {
     var image_path = ""
     var has_image = false
-    lateinit  var image_data : Array<Char>
+    lateinit  var image_data : ByteArray
 
     lateinit var chatState: AppViewModel.ChatState
     val requestPermissionLauncher =
