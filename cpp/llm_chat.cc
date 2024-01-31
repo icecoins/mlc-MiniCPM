@@ -1774,7 +1774,7 @@ tvm::runtime::Module CreateChatModule(DLDevice device) {
 
 // register as a system function that can be queried
 TVM_REGISTER_GLOBAL("mlc.llm_chat_create").set_body_typed([](int device_type, int device_id) {
-  RandomGenerator::GetInstance().SetSeed(233);
+  // RandomGenerator::GetInstance().SetSeed(233);
   return CreateChatModule(DLDevice{static_cast<DLDeviceType>(device_type), device_id});
 });
 

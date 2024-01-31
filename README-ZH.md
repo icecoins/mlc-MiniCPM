@@ -1,17 +1,16 @@
 # MLC-MiniCPM
 
-Based on [MLC-LLM](https://github.com/mlc-ai/mlc-llm), we run MiniCPM and MiniCPM-V on android devices.
+基于 [MLC-LLM](https://github.com/mlc-ai/mlc-llm) 开发，将 MiniCPM 和 MiniCPM-V 在 Android 手机端上运行。
 
-Prebuild APK can be found [here](https://openbmb.oss-cn-hongkong.aliyuncs.com/model_center/mobile/android/MiniCPM.apk).
+预编译好的 APK 包在 [这](https://openbmb.oss-cn-hongkong.aliyuncs.com/model_center/mobile/android/MiniCPM.apk) 下载.
 
-Note that the models run on android are quantized to 4-bit and may lose some performance. The original models can be found [here](https://github.com/OpenBMB/miniCPM).
+注意模型在部署到手机时使用了 4-bit 量化，可能会损失一定的性能. 性能请参考 [原版模型](https://github.com/OpenBMB/miniCPM).
 
-## Prepare Enviroment
+## 电脑端编译模型环境准备
 
-Follow https://llm.mlc.ai/docs/deploy/android.html to prepare requirements.
+参考 https://llm.mlc.ai/docs/deploy/android.html 去安装依赖
 
-For the **Compile PyTorch Mdoels from HuggingFace** session, use our github repo and conduct the following instructions to install our modified version of mlc_chat.
-
+其中 **Compile PyTorch Mdoels from HuggingFace** 这一步, 改成使用我们的 github 代码然后执行以下命令，来安装 mlc_chat 用于编译模型：
 ```
 mkdir -p build && cd build
 # generate build configuration
@@ -22,11 +21,11 @@ cd build && cmake .. && cmake --build . --parallel $(nproc) && cd ..
 cd python && pip install -e . && cd ..
 ```
 
-## Compile Model
+## 编译模型
 
-put huggingface downloaded model checkpoint into `dist/models`.
+从 huggingface 下载模型放至 `dist/models`.
 
-For MiniCPM
+对于 MiniCPM，运行
 ```
 MODEL_NAME=MiniCPM
 QUANTIZATION=q4f16_1
@@ -39,7 +38,7 @@ cd ./android/library
 cd -
 ```
 
-For MiniCPM-V (vision version)
+对于 MiniCPM-V (视觉版本)，运行
 ```
 MODEL_NAME=MiniCPM-V
 QUANTIZATION=q4f16_1
@@ -51,9 +50,8 @@ cd ./android/library
 ./prepare_libs.sh
 cd -
 ```
-
-`--sliding-window-size` are set only for mobile phones to limit memory usage, and can be set smaller or larger base on your phone.
+其中 `--sliding-window-size` 用于在手机端限制资源使用, 可根据手机具体能力调整.
 
 ## Build Android App
 
-Go to `android/` and use Android Studio to build the app. (Follow https://llm.mlc.ai/docs/deploy/android.html)
+进入 `android/` 文件夹，使用 Android Studio 构建 (参考 https://llm.mlc.ai/docs/deploy/android.html)
