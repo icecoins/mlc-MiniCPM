@@ -27,7 +27,6 @@ public class ChatModule {
         stoppedFunc = llmChat.getFunction("stopped");
         resetChatFunc = llmChat.getFunction("reset_chat");
         runtimeStatsTextFunc = llmChat.getFunction("runtime_stats_text");
-
     }
 
     public void unload() {

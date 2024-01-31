@@ -273,7 +273,7 @@ class GroupQuantize:  # pylint: disable=too-many-instance-attributes
         )
         scale = te.compute(
             scale_shape,
-            lambda *idx: (max_value(*idx)-min_value(*idx)).astype(self.model_dtype) / (max_int * 2 + 1),
+            lambda *idx: (max_value(*idx)-min_value(*idx)).astype(self.model_dtype) / (max_int * 2),
             name="scale",
         )
         zero = te.compute(
