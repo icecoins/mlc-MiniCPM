@@ -2,7 +2,32 @@
 
 基于 [MLC-LLM](https://github.com/mlc-ai/mlc-llm) 开发，将 MiniCPM 和 MiniCPM-V 在 Android 手机端上运行。
 
-预编译好的安卓软件安装包在 [这](https://openbmb.oss-cn-hongkong.aliyuncs.com/model_center/mobile/android/MiniCPM.apk) 下载.
+## 安卓安装包
+
+0. 安装 [安卓软件安装包](https://openbmb.oss-cn-hongkong.aliyuncs.com/model_center/mobile/android/MiniCPM.apk)
+
+1. 允许相册、拍照权限：MiniCPM-V 模型处理多模态数据，需要相应权限来获取图片
+
+    ![](assets/permission_zh.png)
+
+2. 下载模型：（1）点击下载按钮 (2) 等待进度条 (3) 开始对话
+
+    **注意：当前两个模型不能同时下载，会造成闪退（软件上存在一些 bug，待修复）**
+
+    ![](assets/download.png)
+
+3. 和 MiniCPM 对话: (1) 等待模型初始化，直到 "Ready to chat" 弹出。 (2) 打字并点击发送交流
+
+4. 和 MiniCPM-V 对话: (1) 等待模型初始化，直到 "Ready to chat" 弹出。 (2) 上传图像 (3) 等待 "process image done" 出现 (4) 打字并点击发送交流
+
+    **注意：图像处理需要花费一些时间。**
+
+    ![](assets/chat.png)
+
+5. 演示：
+
+    ![](assets/demo_zh.gif)
+
 
 注意模型在部署到手机时使用了 4-bit 量化，可能会损失一定的性能. 性能请参考 [原版模型](https://github.com/OpenBMB/miniCPM).
 

@@ -4,9 +4,34 @@
 
 Based on [MLC-LLM](https://github.com/mlc-ai/mlc-llm), we run MiniCPM and MiniCPM-V on android devices.
 
-Prebuild Android APK can be found [here](https://openbmb.oss-cn-hongkong.aliyuncs.com/model_center/mobile/android/MiniCPM.apk).
+## Android APK
 
-Note that the models run on android are quantized to 4-bit and may lose some performance. The original models can be found [here](https://github.com/OpenBMB/miniCPM).
+0. Install [APK](https://openbmb.oss-cn-hongkong.aliyuncs.com/model_center/mobile/android/MiniCPM.apk)
+
+1. Accept camera & photo permission: the permission are for MiniCPM-V which can process multimodel input (text + image)
+
+    ![](assets/permission_en.png)
+
+2. Download model: (1) Press the download button (2) Wait for the progress bar to fill up (3) Start chat 
+
+    **Caution：currently the two model can not be downloaded simultaneously due to the bug in downloading.**
+
+    ![](assets/download.png)
+
+3. Chat with MiniCPM: (1) Wait for model initialization until "Ready to chat" pop up. (2) Type and send question
+
+4. Chat with MiniCPM-V: (1) Wait for model initialization until "Ready to chat" pop up. (2) Upload image (3) Wait until "process image done" show up (4) Type and send question
+
+    **Note：image process may take some time.**
+
+    ![](assets/chat.png)
+
+5. Demo:
+
+    ![](assets/demo_en.gif)
+
+Note that the models run on android are quantized to 4-bit and may lose some performance.
+The non-quantized models can be found [here](https://github.com/OpenBMB/miniCPM).
 
 ## Prepare Enviroment
 
