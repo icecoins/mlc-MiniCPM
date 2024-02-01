@@ -1,8 +1,10 @@
 # MLC-MiniCPM
 
+[中文版](https://github.com/OpenBMB/mlc-MiniCPM/blob/main/README-ZH.md)
+
 Based on [MLC-LLM](https://github.com/mlc-ai/mlc-llm), we run MiniCPM and MiniCPM-V on android devices.
 
-Prebuild APK can be found [here](https://openbmb.oss-cn-hongkong.aliyuncs.com/model_center/mobile/android/MiniCPM.apk).
+Prebuild Android APK can be found [here](https://openbmb.oss-cn-hongkong.aliyuncs.com/model_center/mobile/android/MiniCPM.apk).
 
 Note that the models run on android are quantized to 4-bit and may lose some performance. The original models can be found [here](https://github.com/OpenBMB/miniCPM).
 

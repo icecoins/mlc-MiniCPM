@@ -2,7 +2,7 @@
 
 基于 [MLC-LLM](https://github.com/mlc-ai/mlc-llm) 开发，将 MiniCPM 和 MiniCPM-V 在 Android 手机端上运行。
 
-预编译好的 APK 包在 [这](https://openbmb.oss-cn-hongkong.aliyuncs.com/model_center/mobile/android/MiniCPM.apk) 下载.
+预编译好的安卓软件安装包在 [这](https://openbmb.oss-cn-hongkong.aliyuncs.com/model_center/mobile/android/MiniCPM.apk) 下载.
 
 注意模型在部署到手机时使用了 4-bit 量化，可能会损失一定的性能. 性能请参考 [原版模型](https://github.com/OpenBMB/miniCPM).
 
