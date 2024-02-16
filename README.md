@@ -37,7 +37,7 @@ The non-quantized models can be found [here](https://github.com/OpenBMB/miniCPM)
 
 Follow https://llm.mlc.ai/docs/deploy/android.html to prepare requirements.
 
-For the **Compile PyTorch Mdoels from HuggingFace** session, use our github repo and conduct the following instructions to install our modified version of mlc_chat.
+For the **Compile PyTorch Models from HuggingFace** session, use our github repo and conduct the following instructions to install our modified version of mlc_chat.
 
 ```
 mkdir -p build && cd build
