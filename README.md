@@ -5,7 +5,7 @@
 
 https://github.com/OpenBMB/mlc-MiniCPM 基于 https://github.com/mlc-ai/mlc-llm 修改
 
-本 fork 对 android app 进行了界面修改，舍弃了原装（下方查看）界面
+本 fork 对 android app 进行了界面修改（ https://github.com/icecoins/mlc-MiniCPM/releases ），舍弃了原装（下方查看）界面
 
 使用当前版本的 app 时，如遇到 bug 请提交 issue 至本 fork
 
