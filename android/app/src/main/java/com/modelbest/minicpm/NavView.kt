@@ -1,6 +1,7 @@
 package com.modelbest.minicpm
 
 import android.app.Activity
+import android.content.Intent
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -13,6 +14,10 @@ import androidx.navigation.compose.rememberNavController
 fun NavView(activity:Activity, appViewModel: AppViewModel = viewModel()) {
     val navController = rememberNavController()
     NavHost(navController = navController, startDestination = "home") {
+        Utils.appViewModel = appViewModel
+        composable("chat_2") {
+            activity.startActivity(Intent(activity, Chat::class.java).setAction(""))
+        }
         composable("home") { StartView(navController, appViewModel) }
         composable("chat") { ChatView(navController, appViewModel.chatState, activity) }
     }

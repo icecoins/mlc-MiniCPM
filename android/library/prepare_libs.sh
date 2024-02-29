@@ -1,17 +1,15 @@
-#!/bin/bash
-set -euxo pipefail
+
 
 rustup target add aarch64-linux-android
 
+set -euxo pipefail
 mkdir -p build/model_lib
 
 python3 prepare_model_lib.py
 
 cd build
 touch config.cmake
-if [ ${TVM_HOME-0} -ne 0 ]; then
-  echo "set(TVM_HOME ${TVM_HOME})" >> config.cmake
-fi
+echo "set(TVM_HOME ${TVM_HOME})" >> config.cmake
 
 cmake .. \
       -DCMAKE_BUILD_TYPE=Release \
@@ -27,7 +25,7 @@ cmake .. \
       -DMLC_LLM_INSTALL_STATIC_LIB=ON \
       -DCMAKE_SKIP_INSTALL_ALL_DEPENDENCY=ON \
       -DUSE_OPENCL=ON \
-      -DUSE_CUSTOM_LOGGING=ON \
+      -DUSE_CUSTOM_LOGGING=ON
 
-make tvm4j_runtime_packed -j10
+make tvm4j_runtime_packed -j $(nproc)
 cmake --build . --target install --config release -j

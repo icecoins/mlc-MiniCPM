@@ -264,6 +264,7 @@ cmake-build-debug
 *.cer
 *.crt
 *.der
+*.jks
 
 # patch sentinel
 patched.txt

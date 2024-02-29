@@ -58,6 +58,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat.startActivityForResult
 import androidx.navigation.NavController
@@ -73,7 +75,6 @@ fun ChatView(
 ) {
     val localFocusManager = LocalFocusManager.current
     (activity as MainActivity).chatState = chatState
-
     Scaffold(topBar = {
         TopAppBar(
             title = {
@@ -225,7 +226,6 @@ fun bitmapToBytes(bitmap: Bitmap): IntArray {
     }
     return pixels
 }
-
 
 @ExperimentalMaterial3Api
 @Composable

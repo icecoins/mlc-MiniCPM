@@ -1,36 +1,31 @@
 package com.modelbest.minicpm
 
-import com.modelbest.minicpm.ui.theme.MLCChatTheme
-import android.content.Context
-import android.content.Intent
-import android.database.Cursor
-import android.graphics.Bitmap
-import android.net.Uri
-import android.os.Bundle
-import android.provider.MediaStore
-import android.util.Log
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Surface
-import androidx.compose.ui.Modifier
-import java.util.UUID
-
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ContentUris
 import android.content.ContentValues
+import android.content.Context
 import android.content.CursorLoader
-import android.content.pm.PackageManager
+import android.content.DialogInterface
+import android.content.Intent
+import android.database.Cursor
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.Environment
 import android.provider.DocumentsContract
+import android.provider.MediaStore
 import android.text.TextUtils
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
+import android.util.Log
+import android.widget.ImageView
+import android.widget.ProgressBar
+import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
+import androidx.compose.material3.ExperimentalMaterial3Api
 import java.io.ByteArrayOutputStream
+import java.util.UUID
 
 // Ref: https://gist.github.com/MeNiks/947b471b762f3b26178ef165a7f5558a
 object RealPathUtil {
@@ -147,7 +142,7 @@ object RealPathUtil {
      * @return The value of the _data column, which is typically a file path.
      * @author Niks
      */
-    private fun getDataColumn(context: Context, uri: Uri?, selection: String?,
+    fun getDataColumn(context: Context, uri: Uri?, selection: String?,
                               selectionArgs: Array<String>?): String? {
 
         var cursor: Cursor? = null
@@ -170,7 +165,7 @@ object RealPathUtil {
      * @param uri The Uri to check.
      * @return Whether the Uri authority is ExternalStorageProvider.
      */
-    private fun isExternalStorageDocument(uri: Uri): Boolean {
+    fun isExternalStorageDocument(uri: Uri): Boolean {
         return "com.android.externalstorage.documents" == uri.authority
     }
 
@@ -178,7 +173,7 @@ object RealPathUtil {
      * @param uri The Uri to check.
      * @return Whether the Uri authority is DownloadsProvider.
      */
-    private fun isDownloadsDocument(uri: Uri): Boolean {
+    fun isDownloadsDocument(uri: Uri): Boolean {
         return "com.android.providers.downloads.documents" == uri.authority
     }
 
@@ -186,7 +181,7 @@ object RealPathUtil {
      * @param uri The Uri to check.
      * @return Whether the Uri authority is MediaProvider.
      */
-    private fun isMediaDocument(uri: Uri): Boolean {
+    fun isMediaDocument(uri: Uri): Boolean {
         return "com.android.providers.media.documents" == uri.authority
     }
 
@@ -194,7 +189,7 @@ object RealPathUtil {
      * @param uri The Uri to check.
      * @return Whether the Uri authority is Google Photos.
      */
-    private fun isGooglePhotosUri(uri: Uri): Boolean {
+    fun isGooglePhotosUri(uri: Uri): Boolean {
         return "com.google.android.apps.photos.content" == uri.authority
     }
 }
@@ -236,77 +231,148 @@ fun saveImageToGallery(context: Activity, bitmap: Bitmap): String {
 class MainActivity : ComponentActivity() {
     var image_path = ""
     var has_image = false
-
+    var cpm_progress:ProgressBar? = null
+    var cpm_v_progress:ProgressBar? = null
     lateinit var chatState: AppViewModel.ChatState
-    val requestPermissionLauncher =
-        registerForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { isGranted: Boolean ->
-            if (isGranted) {
-                // Permission is granted. Continue the action or workflow in your
-                // app.
-                Log.v("get_image", "get permissions")
-            } else {
-                // Explain to the user that the feature is unavailable because the
-                // feature requires a permission that the user has denied. At the
-                // same time, respect the user's decision. Don't link to system
-                // settings in an effort to convince the user to change their
-                // decision.
-                Log.v("get_image", "not get permissions")
-            }
-        }
-
     @ExperimentalMaterial3Api
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        chatState = AppViewModel(this.application).ChatState()
-        if(ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED){
-            ActivityCompat.requestPermissions(this,
-                arrayOf(
-                    android.Manifest.permission.READ_MEDIA_IMAGES,
-                    android.Manifest.permission.READ_MEDIA_AUDIO,
-                    android.Manifest.permission.READ_MEDIA_VIDEO,
-                    ),
-                1
-            )
-            requestPermissionLauncher.launch(
-                android.Manifest.permission.READ_MEDIA_IMAGES)
-        }
-        if(ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED){
-            ActivityCompat.requestPermissions(this,
-                arrayOf(
-                    android.Manifest.permission.CAMERA,
-                ),
-                0
-            )
-            requestPermissionLauncher.launch(
-                android.Manifest.permission.CAMERA)
-        }
-        setContent {
-            Surface(
-                modifier = Modifier
-                    .fillMaxSize()
-            ) {
-                MLCChatTheme {
-                    NavView(this)
-                }
+        setContentView(R.layout.activity_main)
+        Utils.setFullscreen(this)
+        initConfigs()
+        this.onBackPressedDispatcher.addCallback(this, object :OnBackPressedCallback(true) {
+            override fun handleOnBackPressed(){
+               Utils.backPress(this@MainActivity, "连续返回两次退出程序") { Utils.ActivityController.killAllActivities() }
+            }
+        })
+        Utils.requestPermission(this@MainActivity)
+        //chatState = AppViewModel(this.application).ChatState()
+//        setContent {
+//            Surface(
+//                modifier = Modifier
+//                    .fillMaxSize()
+//            ) {
+//                MLCChatTheme {
+//                    NavView(this)
+//                }
+//            }
+//        }
+    }
+
+    fun updateProgressBar(value:Int, flag: Int){
+        when(flag){
+            0->{
+                cpm_progress!!.progress = value
+            }
+            1->{
+                cpm_v_progress!!.progress = value
             }
         }
     }
 
-    @Deprecated("Deprecated in Java")
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if(requestCode == 1){
-            if(grantResults.size > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED){
-                Log.v("get_image", "get permissions")
+    private fun initConfigs(){
+        Utils.appViewModel = AppViewModel(this.application)
+        if(Utils.appViewModel?.modelList?.size!=2){
+            Log.e("MAIN", "初始化失败")
+            return
+        }
+        Utils.appViewModel!!.chatState.setUpMain(this@MainActivity)
+        Log.e("MAIN", "初始化成功")
+        Utils.showHelp(this@MainActivity)
+        cpm_progress = findViewById(R.id.main_cpm_progressbar)
+        cpm_v_progress = findViewById(R.id.main_cpm_v_progressbar)
+        val cpm_download:ImageView = findViewById(R.id.main_cpm_download)
+        val cpm_v_download:ImageView = findViewById(R.id.main_cpm_v_download)
+        cpm_download.setOnClickListener {
+            when(Utils.appViewModel?.modelList?.get(0)?.modelInitState?.value){
+                ModelInitState.Paused ->{
+                    if(Utils.appViewModel?.modelList?.get(0)?.modelInitState?.value == ModelInitState.Downloading ||
+                        Utils.appViewModel?.modelList?.get(1)?.modelInitState?.value == ModelInitState.Downloading){
+                        Utils.showMsg(this@MainActivity, "模型正在下载，无需重复点击")
+                        return@setOnClickListener
+                    }
+                    Utils.showAlert(this@MainActivity, "下载期间请保持APP在前台运行", "下载", "取消", {
+                        cpm_download.setImageBitmap(BitmapFactory.decodeResource(this@MainActivity.resources ,R.mipmap.ic_pause))
+                        Utils.appViewModel?.modelList?.get(0)?.handleStart()
+                    }, {})
+                }
+                ModelInitState.Downloading ->{
+                    Utils.appViewModel?.modelList?.get(0)?.handlePause()
+                    cpm_download.setImageBitmap(BitmapFactory.decodeResource(this@MainActivity.resources ,R.mipmap.ic_download_light))
+                }
+                ModelInitState.Finished ->{
+                    Utils.showMsg(this@MainActivity, "已完成下载")
+                }
+                else -> {
+                    Log.e("STATE", Utils.appViewModel?.modelList?.get(0)?.modelInitState?.value.toString())
+                    Utils.showMsg(this@MainActivity, "下载异常")
+                }
             }
-        }else{
-            Log.v("get_image", "not get permissions")
+        }
+        findViewById<ImageView>(R.id.main_cpm_chat)?.setOnClickListener {
+            if(Utils.appViewModel?.modelList?.get(0)?.modelInitState?.value == ModelInitState.Finished){
+                Utils.appViewModel?.modelList?.get(0)?.startChat()
+                startActivity(Intent(this, Chat::class.java).setAction(""))
+            }else{
+                Utils.showMsg(this@MainActivity, "预训练模型 MiniCPM 未下载")
+            }
+        }
+        findViewById<ImageView>(R.id.main_cpm_delete)?.setOnClickListener {
+            if(Utils.appViewModel?.modelList?.get(0)?.modelInitState?.value == ModelInitState.Finished ||
+                Utils.appViewModel?.modelList?.get(0)?.modelInitState?.value == ModelInitState.Paused){
+                Utils.showAlert(this@MainActivity, "是否删除已下载的预训练模型？",
+                    "确定", "取消", { Utils.appViewModel!!.modelList[0].handleClear() }, {})
+            }else{
+                Utils.showMsg(this@MainActivity, "请先暂停下载")
+            }
+        }
+
+        cpm_v_download.setOnClickListener {
+            when (Utils.appViewModel?.modelList?.get(1)?.modelInitState?.value) {
+                ModelInitState.Paused -> {
+                    if(Utils.appViewModel?.modelList?.get(0)?.modelInitState?.value == ModelInitState.Downloading ||
+                        Utils.appViewModel?.modelList?.get(1)?.modelInitState?.value == ModelInitState.Downloading){
+                        Utils.showMsg(this@MainActivity, "模型正在下载，无需重复点击")
+                        return@setOnClickListener
+                    }
+                    Utils.showAlert(this@MainActivity, "下载期间请保持APP在前台运行", "下载", "取消", {
+                        cpm_v_download.setImageBitmap(BitmapFactory.decodeResource(this@MainActivity.resources, R.mipmap.ic_pause))
+                        Utils.appViewModel?.modelList?.get(1)?.handleStart()
+                    }, {})
+                }
+                ModelInitState.Downloading -> {
+                    Utils.appViewModel?.modelList?.get(1)?.handlePause()
+                    cpm_v_download.setImageBitmap(
+                        BitmapFactory.decodeResource(
+                            this@MainActivity.resources,
+                            R.mipmap.ic_download_light
+                        )
+                    )
+                }
+                ModelInitState.Finished -> {
+                    Utils.showMsg(this@MainActivity, "已完成下载")
+                }
+                else -> {
+                    Utils.showMsg(this@MainActivity, "下载异常")
+                }
+            }
+        }
+        findViewById<ImageView>(R.id.main_cpm_v_chat)?.setOnClickListener {
+            if(Utils.appViewModel?.modelList?.get(1)?.modelInitState?.value == ModelInitState.Finished){
+                Utils.appViewModel?.modelList?.get(1)?.startChat()
+                startActivity(Intent(this, Chat::class.java).setAction(""))
+            }else{
+                Utils.showMsg(this@MainActivity, "预训练模型 MiniCPM-V 未下载")
+            }
+        }
+        findViewById<ImageView>(R.id.main_cpm_v_delete)?.setOnClickListener {
+            if(Utils.appViewModel?.modelList?.get(1)?.modelInitState?.value == ModelInitState.Finished ||
+                Utils.appViewModel?.modelList?.get(1)?.modelInitState?.value == ModelInitState.Paused){
+                Utils.showAlert(this@MainActivity, "是否删除已下载的预训练模型？",
+                    "确定", "取消", { Utils.appViewModel!!.modelList[1].handleClear() }, {})
+            }else{
+                Utils.showMsg(this@MainActivity, "请先暂停下载")
+            }
         }
     }
 

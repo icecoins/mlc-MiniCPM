@@ -2,6 +2,7 @@ package com.modelbest.minicpm
 
 import com.modelbest.mlcllm.ChatModule
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.app.Application
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
@@ -12,6 +13,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
 import android.os.Environment
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.toMutableStateList
@@ -32,13 +34,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     val modelList = emptyList<ModelState>().toMutableStateList()
     val chatState = ChatState()
     val modelSampleList = emptyList<ModelRecord>().toMutableStateList()
+    var chat:Chat ?= null
+    var main:MainActivity ?= null
     private var showAlert = mutableStateOf(false)
     private var alertMessage = mutableStateOf("")
     private var appConfig = AppConfig(
         emptyList(),
         emptyList<ModelRecord>().toMutableList()
     )
-    private lateinit var downloadManager: DownloadManager
+    private var downloadManager: DownloadManager
 
     private val application = getApplication<Application>()
     private val appDirFile = application.getExternalFilesDir("")
@@ -164,7 +168,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         modelDirFile.deleteRecursively()
         require(!modelDirFile.exists())
         localIdSet.remove(localId)
-        modelList.removeIf { modelState -> modelState.modelConfig.localId == localId }
+        modelList.removeIf {
+            modelState -> modelState.modelConfig.localId == localId }
         updateAppConfig {
             appConfig.modelList.removeIf { modelRecord -> modelRecord.localId == localId }
         }
@@ -200,7 +205,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         private fun switchToInitializing() {
             val paramsConfigFile = File(modelDirFile, ParamsConfigFilename)
-
             loadParamsConfig()
             switchToIndexing()
         }
@@ -328,7 +332,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         inner class ProgressTask : TimerTask() {
             @SuppressLint("Range")
-            public override fun run() {
+            override fun run() {
                 val downloadQuery = DownloadManager.Query()
                 downloadQuery.setFilterById(large_task_id)
                 val cursor = downloadManager.query(downloadQuery);
@@ -336,6 +340,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     val total = cursor.getLong(cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
                     val cur = cursor.getLong(cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
                     progress.value += (cur - last_large_progress).toFloat() / total * 19
+                    if(chatState.modelName.value.endsWith("-V")){
+                        main!!.updateProgressBar(progress.value.toInt(), 1)
+                    }else{
+                        main!!.updateProgressBar(progress.value.toInt(), 0)
+                    }
                     last_large_progress = cur
                     cursor.close()
                 }
@@ -394,6 +403,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 if (remainingTasks.isEmpty()) {
                     if (downloadingTasks.isEmpty()) {
                         timer.cancel()
+                        if(chatState.modelName.value.endsWith("-V")){
+                            main!!.updateProgressBar(100, 1)
+                        }else{
+                            main!!.updateProgressBar(100, 0)
+                        }
+                        Utils.showAlert(main as Activity, "模型下载完成", "确定", "", {}, {})
                         switchToFinished()
                     }
                 } else {
@@ -427,6 +442,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             val modelConfigFile = File(modelDirFile, ModelConfigFilename)
             require(modelConfigFile.exists())
             switchToIndexing()
+            Utils.showMsg(main, "删除完成")
         }
 
         private fun delete() {
@@ -504,6 +520,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         private fun switchToReady() {
             modelChatState.value = ModelChatState.Ready
+            chat!!.updateReport(report.value)
+            Utils.LoadingDialogUtils.dismiss()
         }
 
         private fun switchToFailed() {
@@ -519,7 +537,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     val errorMessage = e.localizedMessage
                     appendMessage(
                         MessageRole.Bot,
-                        "MLCChat failed\n\nStack trace:\n$stackTrace\n\nError message:\n$errorMessage"
+                        "MLCChat failed\n\nStack trace:\n$stackTrace\n\nError message:\n"
+                        //"MLCChat failed\n\nStack trace:\n$stackTrace\n\nError message:\n$errorMessage"
                     )
                     switchToFailed()
                 }
@@ -538,6 +557,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     mainResetChat()
                 }
             )
+            chat?.refreshView()
         }
 
         private fun interruptChat(prologue: () -> Unit, epilogue: () -> Unit) {
@@ -607,48 +627,52 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             this.modelPath = modelPath
             executorService.submit {
                 viewModelScope.launch {
-                    Toast.makeText(application, "Initialize...", Toast.LENGTH_LONG).show()
+                    Utils.showMsg(application.applicationContext, "载入模型...")
+                    //Toast.makeText(application, "Initialize...", Toast.LENGTH_LONG).show()
                 }
                 if (!callBackend {
                         backend.unload()
                         backend.reload(modelLib, modelPath)
                     }) return@submit
                 viewModelScope.launch {
-                    Toast.makeText(application, "Ready to chat", Toast.LENGTH_SHORT).show()
                     switchToReady()
+                    Utils.showMsg(application.applicationContext, "模型载入完成")
+                    //Toast.makeText(application, "Ready to chat", Toast.LENGTH_SHORT).show()
                 }
             }
         }
 
         fun requestImage(img: IntArray) {
             require(chatable())
-            var newText = ""
             switchToGenerating()
-            Toast.makeText(application, "Image Processing...", Toast.LENGTH_SHORT).show()
+            Utils.showMsg(application.applicationContext, "图像识别中...")
             executorService.submit {
                 if (!callBackend { backend.image(img) }) return@submit
                 has_user_prompt = true
                 viewModelScope.launch {
-                    report.value = "Image process is done, ask any question"
-                    if (modelChatState.value == ModelChatState.Generating) switchToReady()
+                    report.value = "图像识别完成，可以开始提问"
+                    if (modelChatState.value == ModelChatState.Generating){
+                        Utils.showMsg(application.applicationContext, "图像识别完成")
+                        switchToReady()
+                    }
                 }
             }
-
         }
 
         fun requestGenerate(prompt: String) {
             require(chatable())
             var newText = ""
             switchToGenerating()
+            appendMessage(MessageRole.User, prompt)
             executorService.submit {
-                appendMessage(MessageRole.User, prompt)
                 appendMessage(MessageRole.Bot, "")
                 if (has_user_prompt) {
                     if (!callBackend { backend.prefill("</image>" + prompt + "<AI>") }) return@submit
                     has_user_prompt = false
                 } else {
                     if (is_first_ask && !modelName.value.endsWith("-V")) {
-                        if (!callBackend { backend.prefill("<系统命令>你是MiniCPM，由面壁智能开发。<用户>" + prompt + "<AI>") }) return@submit
+                        //if (!callBackend { backend.prefill("<系统命令>你是MiniCPM，由面壁智能开发。<用户>" + prompt + "<AI>") }) return@submit
+                        if (!callBackend { backend.prefill("<系统命令>你是一个人工智能，你的工作是解决用户提出的问题。<用户>" + prompt + "<AI>") }) return@submit
                         is_first_ask = false;
                     }
                     else {
@@ -670,14 +694,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
-
         private fun appendMessage(role: MessageRole, text: String) {
             messages.add(MessageData(role, text))
+            chat?.refreshView()
         }
-
 
         private fun updateMessage(role: MessageRole, text: String) {
             messages[messages.size - 1] = MessageData(role, text)
+            chat?.refreshView()
+            Log.e("BOT MSG", text)
         }
 
         fun chatable(): Boolean {
@@ -688,6 +713,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             return modelChatState.value == ModelChatState.Ready
                     || modelChatState.value == ModelChatState.Generating
                     || modelChatState.value == ModelChatState.Falied
+        }
+
+        fun setUpChat(activity: Chat){
+            if(null == chat){
+                chat = activity
+            }
+        }
+
+        fun setUpMain(activity: MainActivity){
+            if(null == main){
+                main = activity
+            }
         }
     }
 }
@@ -714,7 +751,8 @@ enum class ModelChatState {
 
 enum class MessageRole {
     Bot,
-    User
+    User,
+    Img
 }
 
 data class DownloadTask(val url: String, val file: File)

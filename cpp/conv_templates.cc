@@ -1,3 +1,5 @@
+#pragma execution_character_set("utf-8")
+
 #include <string>
 #include <unordered_map>
 
@@ -645,7 +647,7 @@ Conversation GLM() {
   Conversation conv;
   conv.name = "glm";
   conv.system = "";
-  conv.roles = {"é—®", "ç­”"};
+  conv.roles = {"ÎÊ","´ð"};
   conv.messages = {};
   conv.offset = 0;
   conv.separator_style = SeparatorStyle::kSepRoleMsg;
