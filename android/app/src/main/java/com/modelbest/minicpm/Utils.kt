@@ -2,7 +2,6 @@ package com.modelbest.minicpm
 
 import android.app.Activity
 import android.app.AlertDialog
-import android.content.ContentUris
 import android.content.Context
 import android.content.DialogInterface
 import android.content.res.Configuration
@@ -11,11 +10,8 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
 import android.os.Looper
-import android.provider.DocumentsContract
 import android.provider.MediaStore
-import android.text.TextUtils
 import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
@@ -31,7 +27,6 @@ object Utils {
     private var mBackPressed: Long = 0
     var appViewModel:AppViewModel?=null
     var chatItemAdapter:ChatItemAdapter?=null
-    var sendingImg:Boolean = false
     var cachePath:String? = null
     object ActivityController{
         private var activityList:ArrayList<Activity>?= null
@@ -212,73 +207,5 @@ object Utils {
         } finally {
             cursor?.close()
         }
-    }
-    fun getRealPathFromURIAPI19(context: Context, uri : Uri): String? {
-
-        val isKitKat = Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT
-        // DocumentProvider
-        if (isKitKat && DocumentsContract.isDocumentUri(context, uri)) {
-            // ExternalStorageProvider
-            if (RealPathUtil.isExternalStorageDocument(uri)) {
-                val docId = DocumentsContract.getDocumentId(uri)
-                val split = docId.split(":".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
-                val type = split[0]
-
-                if ("primary".equals(type, ignoreCase = true)) {
-                    return Environment.getExternalStorageDirectory().toString() + "/" + split[1]
-                }
-            } else if (RealPathUtil.isDownloadsDocument(uri)) {
-                var cursor: Cursor? = null
-                try {
-                    cursor = context.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.DISPLAY_NAME), null, null, null)
-                    cursor!!.moveToNext()
-                    val fileName = cursor.getString(0)
-                    val path = Environment.getExternalStorageDirectory().toString() + "/Download/" + fileName
-                    if (!TextUtils.isEmpty(path)) {
-                        return path
-                    }
-                } finally {
-                    cursor?.close()
-                }
-                val id = DocumentsContract.getDocumentId(uri)
-                if (id.startsWith("raw:")) {
-                    return id.replaceFirst("raw:".toRegex(), "")
-                }
-                val contentUri = ContentUris.withAppendedId(Uri.parse("content://downloads"), java.lang.Long.valueOf(id))
-
-                return RealPathUtil.getDataColumn(context, contentUri, null, null)
-            } else if (RealPathUtil.isMediaDocument(uri)) {
-                val docId = DocumentsContract.getDocumentId(uri)
-                val split = docId.split(":".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
-                val type = split[0]
-
-                var contentUri: Uri? = null
-                when (type) {
-                    "image" -> contentUri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-                    "video" -> contentUri = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-                    "audio" -> contentUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-                }
-
-                val selection = "_id=?"
-                val selectionArgs = arrayOf(split[1])
-
-                return RealPathUtil.getDataColumn(context, contentUri, selection, selectionArgs)
-            }// MediaProvider
-            // DownloadsProvider
-        } else if ("content".equals(uri.scheme!!, ignoreCase = true)) {
-
-            // Return the remote address
-            return if (RealPathUtil.isGooglePhotosUri(uri)) uri.lastPathSegment else RealPathUtil.getDataColumn(
-                context,
-                uri,
-                null,
-                null
-            )
-        } else if ("file".equals(uri.scheme!!, ignoreCase = true)) {
-            return uri.path
-        }// File
-        // MediaStore (and general)
-
-        return null
     }
 }

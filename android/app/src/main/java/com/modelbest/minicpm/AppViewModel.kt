@@ -14,7 +14,6 @@ import android.content.IntentFilter
 import android.net.Uri
 import android.os.Environment
 import android.util.Log
-import android.widget.Toast
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.AndroidViewModel
@@ -751,8 +750,7 @@ enum class ModelChatState {
 
 enum class MessageRole {
     Bot,
-    User,
-    Img
+    User
 }
 
 data class DownloadTask(val url: String, val file: File)
